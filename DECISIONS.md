@@ -78,3 +78,7 @@ Choices the build spec left open, and departures from it. Newest last.
 
 ## 2026-10-18 — Idle CPU measurement
 **Finding:** With the built app, a file open and the window unfocused, propvim, its WebKit processes (WebContent, GPU) and a `--clean` Neovim averaged 0.00% CPU over 30 one-second `ps` samples after 60 s idle. With the developer's own Neovim config the total was 1.4%, all of it inside Neovim (plugin Lua timers polling `fs_stat`), and 0.0% in propvim and WebKit.
+
+## 2026-10-18 — Stretch experiment: `nvim_ui_try_resize_grid` on window grids
+**Finding (Neovim 0.12.5):** It works for normal window grids. With an 80-column window, `nvim_ui_try_resize_grid(2, 120, 22)` returned nil, Neovim sent `grid_resize [2, 120, 22]`, and wrapped text (`wrap linebreak`) filled up to column 116 of grid 2, while `nvim_win_get_width()` and the window's `win_pos` width stayed 80. After a later `:vsplit`, Neovim sent a new `win_pos` width (39) for that window but no `grid_resize`: once the UI sets a grid's size it owns it, and must resize it on every layout change (or hand it back with size 0×0).
+**Status:** The `wide_prose_grids` flag is not built. It would need: a column count per prose window from its pixel width and the prose font's average advance; a `nvim_ui_try_resize_grid` on every `win_pos` and window resize; and handling of things that still use the layout width (`winwidth()`, statusline, `colorcolumn`, plugins that wrap text themselves).
