@@ -7,7 +7,7 @@ import { buildColumnMap, colToX, colWidth, placeFloat, textEnd, xToCol, type Col
 import type { Grid, Row } from '../model/grid';
 import type { UiState, WinBox } from '../model/state';
 import type { Metrics } from './metrics';
-import { monoHlIds, writeStyles } from './styles';
+import { BOX_LINES, BOX_ROUND, monoHlIds, writeStyles } from './styles';
 
 /** Per-row bookkeeping for prose rows: where each cell's text sits in the DOM. */
 interface ProseRow {
@@ -15,6 +15,8 @@ interface ProseRow {
   spanIdx: Int32Array;
   off: Int32Array;
   len: Int32Array;
+  /** Horizontal scale from overflow = shrink (1 when the text fits). */
+  scale: number;
   map?: ColumnMap;
 }
 
@@ -51,11 +53,29 @@ export interface PaintStats {
 const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ESC[c]);
 const isAscii = (t: string) => t.length === 1 && t.charCodeAt(0) < 0x80;
+/** Extra classes for box-drawing characters: drawn lines, or a glyph stretched to the cell height. */
+function boxClass(t: string): string {
+  if (t.length !== 1) return '';
+  const code = t.charCodeAt(0);
+  if (code < 0x2500 || code > 0x259f) return '';
+  return BOX_LINES[t] || BOX_ROUND[t] ? ` bd b${code.toString(16)}` : ' bx';
+}
 const px = (n: number) => `${Math.round(n * 1000) / 1000}px`;
+/** Snaps to device pixels so neighbouring cell backgrounds meet without seams. */
+const snap = (n: number) => {
+  const dpr = window.devicePixelRatio || 1;
+  return Math.round(n * dpr) / dpr;
+};
+/** A mono span covering cells [c0, c1). */
+const cellSpan = (cls: string, c0: number, c1: number, cw: number, text: string) => {
+  const x0 = snap(c0 * cw);
+  return `<span class="${cls}" style="left:${px(x0)};width:${px(snap(c1 * cw) - x0)}">${esc(text)}</span>`;
+};
 
 export class Renderer {
   private views = new Map<number, GridView>();
   private cursorEl = document.createElement('div');
+  private measureHost = document.createElement('div');
   private blinkSheet = document.createElement('style');
   private blinkKey = '';
   private blinkFlip = false;
@@ -72,6 +92,9 @@ export class Renderer {
     public config: Config,
   ) {
     this.cursorEl.className = 'cursor';
+    this.measureHost.className = 'pt measure';
+    this.measureHost.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(this.measureHost);
     document.head.appendChild(this.blinkSheet);
   }
 
@@ -145,7 +168,8 @@ export class Renderer {
     painted.forEach(([v, pr], i) => {
       const a = avail(v);
       if (widths[i] > a + 0.5 && this.config.overflow === 'shrink') {
-        pr.pc.style.transform = `scaleX(${a / widths[i]})`;
+        pr.scale = a / widths[i];
+        pr.pc.style.transform = `scaleX(${pr.scale})`;
       }
     });
 
@@ -209,10 +233,10 @@ export class Renderer {
         c++;
         while (c < to && hl[c] === h && isAscii(text[c])) s += text[c++];
         if (h === 0 && s.trim() === '') continue;
-        html += `<span class="h${h}" style="left:${px(start * cw)};width:${px((c - start) * cw)}">${esc(s)}</span>`;
+        html += cellSpan(`h${h}`, start, c, cw, s);
       } else {
         const w = text[c + 1] === '' ? 2 : 1;
-        html += `<span class="h${h}" style="left:${px(c * cw)};width:${px(w * cw)}">${esc(t)}</span>`;
+        html += cellSpan(`h${h}${boxClass(t)}`, c, c + w, cw, t);
         c++;
       }
     }
@@ -258,10 +282,14 @@ export class Renderer {
       this.monoHtml(row, 0, textoff) +
       `<div class="pt" style="left:${px(textoff * cw)};width:${px((width - textoff) * cw)}"><span class="pc">${runs}</span>${filler}</div>`;
     const pc = el.querySelector<HTMLElement>('.pc')!;
-    return { pc, spanIdx, off, len };
+    return { pc, spanIdx, off, len, scale: 1 };
   }
 
-  /** The column-to-x mapping of a prose row, built lazily from DOM measurements. */
+  /**
+   * The column-to-x mapping of a prose row, built lazily. WebKit snaps Range
+   * rects of partial text nodes to whole pixels, so offsets inside a span come
+   * from prefix widths measured as elements (exact), set in the same classes.
+   */
   private columnMap(v: GridView, grid: Grid, rowIndex: number): ColumnMap | null {
     const row = grid.rows[rowIndex];
     const pr = row && v.prose.get(row.key);
@@ -269,14 +297,39 @@ export class Renderer {
     if (pr.map) return pr.map;
     const el = v.rowEls.get(row.key)!;
     const base = el.getBoundingClientRect().left;
-    const range = document.createRange();
+    const spans = [...pr.pc.children] as HTMLElement[];
+    const rects = spans.map((s) => s.getBoundingClientRect());
+    const texts = spans.map((s) => s.textContent ?? '');
+
+    // One hidden element per needed prefix; prefix 0 and the full text need none.
+    const wanted = new Map<string, number>();
+    let html = '';
+    const need = (span: number, off: number) => {
+      if (off <= 0 || off >= texts[span].length) return;
+      const key = `${span}:${off}`;
+      if (wanted.has(key)) return;
+      wanted.set(key, wanted.size);
+      html += `<span class="${spans[span].className}">${esc(texts[span].slice(0, off))}</span>`;
+    };
+    for (let c = v.textoff; c < row.text.length; c++) {
+      if (pr.spanIdx[c] < 0) continue;
+      need(pr.spanIdx[c], pr.off[c]);
+      need(pr.spanIdx[c], pr.off[c] + pr.len[c]);
+    }
+    this.measureHost.innerHTML = html;
+    const widths = [...this.measureHost.children].map((e) => e.getBoundingClientRect().width);
+    this.measureHost.textContent = '';
+
+    const x = (span: number, off: number) => {
+      const r = rects[span];
+      if (off <= 0) return r.left - base;
+      if (off >= texts[span].length) return r.right - base;
+      return r.left - base + widths[wanted.get(`${span}:${off}`)!] * pr.scale;
+    };
     const measure = (col: number) => {
-      const node = pr.pc.children[pr.spanIdx[col]]?.firstChild;
-      if (!node) return null;
-      range.setStart(node, pr.off[col]);
-      range.setEnd(node, pr.off[col] + pr.len[col]);
-      const r = range.getBoundingClientRect();
-      return { left: r.left - base, right: r.right - base };
+      const span = pr.spanIdx[col];
+      if (span < 0 || !rects[span]) return null;
+      return { left: x(span, pr.off[col]), right: x(span, pr.off[col] + pr.len[col]) };
     };
     pr.map = buildColumnMap(row.text, v.textoff, this.metrics.cw, this.metrics.proseSpace, measure);
     return pr.map;
@@ -343,10 +396,10 @@ export class Renderer {
 
     const place = (v: GridView, z: number) => {
       const p = origin(v.id);
-      v.x = p.x;
-      v.y = p.y;
+      v.x = snap(p.x);
+      v.y = snap(p.y);
       v.z = z;
-      v.el.style.transform = `translate(${px(p.x)},${px(p.y)})`;
+      v.el.style.transform = `translate(${px(v.x)},${px(v.y)})`;
       v.el.style.zIndex = String(z);
     };
     const g1 = this.views.get(1);

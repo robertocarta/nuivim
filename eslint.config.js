@@ -9,6 +9,11 @@ export default tseslint.config(
     },
   },
   {
+    // Code passed to page.evaluate runs in the page, where window.__propvim is untyped.
+    files: ['tests/e2e/**/*.ts'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
+  },
+  {
     // The model is pure UI state: no DOM, no Tauri, no view code.
     files: ['src/model/**/*.ts', 'src/config.ts'],
     rules: {

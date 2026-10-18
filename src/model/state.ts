@@ -230,6 +230,8 @@ export class UiState {
   }
 
   msgSetPos(args: unknown[]): void {
+    // Neovim sends one msg_set_pos for grid 0 at startup; there is no such grid.
+    if (num(args[0]) === 0) return;
     const b = this.box(num(args[0]), 0, 'msg');
     b.msg = { row: num(args[1]), scrolled: args[2] === true, sepChar: str(args[3]), zindex: num(args[4], 200) };
   }

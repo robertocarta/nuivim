@@ -38,7 +38,20 @@ Choices the build spec left open, and departures from it. Newest last.
 **Decision:** The message grid is drawn at its `msg_set_pos` row over the full width, clipped by the window's bottom edge (Neovim makes it as tall as the screen). `msg_set_pos` for grid 0 (sent at startup) is ignored. No msgsep line is drawn when `scrolled` is true: the default `sep_char` is a space, and Neovim already draws the message area's background.
 
 ## 2026-10-18 — Key notation details
-- Ctrl/Cmd + letter is sent lowercase, with `S-` when Shift is held (`<C-S-a>`, `<D-S-s>`); Neovim normalises these to `<C-S-A>` and `<D-S>`. Ctrl/Cmd + a shifted symbol is sent as the symbol without `S-` (`<C-@>`), since Shift is already in the character.
+- Ctrl/Cmd + letter is sent lowercase, with `S-` when Shift is held, modifiers always in the order C-S-M-D (`<C-S-a>`, `<S-D-s>`); Neovim normalises these to `<C-S-A>` and `<D-S>`. Ctrl/Cmd + a shifted symbol is sent as the symbol without `S-` (`<C-@>`), since Shift is already in the character.
 - With Option as Meta, letters and digits come from the physical key (`KeyboardEvent.code`); other keys fall back to the character Option produced.
 - `<`, `\`, `|` and space inside `<…>` become `lt`, `Bslash`, `Bar`, `Space`.
 - No Edit menu: without it, Cmd-C/V/A/X/Z reach Neovim as `<D-…>`. The app menu holds Hide (Cmd-H), Hide Others, Show All and Quit (Cmd-Q → `confirm qa`); the Window menu holds Minimise (Cmd-M) and Full Screen.
+
+## 2026-10-18 — Light box-drawing characters are drawn with CSS
+**Decision:** `─ │ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼` are drawn as 1px lines through the cell centre, and `╭ ╮ ╯ ╰` as rounded borders; the glyph stays in the DOM, transparent, so text extraction and tests still see it. Other box and block characters (U+2500–U+259F) are drawn as glyphs stretched to the cell height.
+**Reason:** Rows are as tall as the larger of the two fonts, so mono glyphs leave gaps between rows; plugin borders (Telescope, completion menus) looked dashed. Terminals and GUIs such as kitty and Neovide draw these characters themselves for the same reason.
+**Rejected:** Only stretching glyphs (fonts don't fill their advance box; later rows' backgrounds cover the overdraw).
+
+## 2026-10-18 — Device-pixel snapping of mono spans and grid origins
+**Decision:** Mono spans cover `[snap(c0 × cw), snap(c1 × cw))` and grid boxes are placed at snapped positions, where `snap` rounds to device pixels.
+**Reason:** Fractional span edges antialias and leave visible seams between neighbouring cell backgrounds. The shift is at most half a device pixel (0.25 CSS px on Retina), inside the spec's ±0.5 tolerance.
+
+## 2026-10-18 — Prose column offsets come from element widths, not partial Range rects
+**Decision:** The column-to-x mapping takes each span's exact box (`getBoundingClientRect` of the element) plus the width of the text before the column, measured as a hidden element with the same classes, times the row's shrink scale.
+**Reason:** WebKit rounds the rect of a Range covering part of a text node up to whole pixels (seen in Playwright WebKit: widths 9, 17, 26 for 8.43, 16.86, 25.29), which alone would break the ±0.5px tolerance. Element widths are exact.

@@ -18,6 +18,8 @@ export interface Metrics {
   ch: number;
   /** Width of one space in the prose font. */
   proseSpace: number;
+  /** Line height of the mono font alone (box-drawing glyphs are stretched from it to ch). */
+  monoLineHeight: number;
 }
 
 function measureText(family: string, size: number, text: string): { width: number; height: number } {
@@ -38,5 +40,5 @@ export function measure(fonts: Fonts): Metrics {
   const proseX = measureText(fonts.proseFamily, fonts.proseSize, 'x');
   const cw = mono.width / 100;
   const ch = Math.max(1, Math.round(Math.max(mono.height, prose.height) + fonts.linespace));
-  return { fonts, cw, ch, proseSpace: (prose.width - proseX.width) / 100 };
+  return { fonts, cw, ch, proseSpace: (prose.width - proseX.width) / 100, monoLineHeight: mono.height };
 }

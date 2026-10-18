@@ -147,3 +147,28 @@ body.page pre {
   overflow: auto;
   font: 12px/1.4 Menlo, monospace;
 }
+
+/* Hidden host for measuring prefix widths of prose runs. */
+.pt.measure {
+  left: -100000px;
+  height: auto;
+  visibility: hidden;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.pt.measure > span {
+  white-space: pre;
+}
+
+.row > span.bd {
+  /* Drawn with CSS (see BOX_LINES in view/styles.ts); the glyph stays for copying and tests. */
+  -webkit-text-fill-color: transparent;
+}
+
+.row > span.bx {
+  /* A little overdraw so lines in neighbouring cells meet, as in a terminal. */
+  transform: scale(1.1, calc(var(--bx-scale) * 1.15));
+}
