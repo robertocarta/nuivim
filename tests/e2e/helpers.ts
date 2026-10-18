@@ -86,3 +86,62 @@ export function screenRowText(page: Page, row: number, col = 0, width?: number):
     [row, col, width ?? 0],
   ).then(async (s) => (width === undefined ? screenRowText(page, row, col, await lua<number>(page, 'return vim.o.columns')) : s));
 }
+
+/**
+ * Box of the character in cell `col` of a prose row, relative to the grid's left
+ * edge, measured independently of the renderer's mapping: in a clone of the row's
+ * text area, the character is wrapped in its own element.
+ */
+export function proseCharBox(page: Page, grid: number, row: number, col: number): Promise<{ left: number; width: number; top: number; height: number }> {
+  return page.evaluate(
+    ([grid, row, col]) => {
+      const p = (window as any).__propvim;
+      const view = p.renderer.views.get(grid);
+      const cells: string[] = p.state.grids.get(grid).rows[row].text;
+      const rowKey = p.state.grids.get(grid).rows[row].key;
+      const rowEl: HTMLElement = view.rowEls.get(rowKey);
+      let off = 0;
+      for (let c = view.textoff; c < col; c++) off += cells[c].length;
+      const len = cells[col].length;
+      const clone = rowEl.querySelector('.pt')!.cloneNode(true) as HTMLElement;
+      clone.style.visibility = 'hidden';
+      rowEl.appendChild(clone);
+      const walker = document.createTreeWalker(clone.querySelector('.pc')!, NodeFilter.SHOW_TEXT);
+      let node = walker.nextNode() as Text | null;
+      while (node && off >= node.data.length) {
+        off -= node.data.length;
+        node = walker.nextNode() as Text | null;
+      }
+      const mid = node!.splitText(off);
+      mid.splitText(len);
+      const wrap = document.createElement('span');
+      mid.replaceWith(wrap);
+      wrap.appendChild(mid);
+      const r = wrap.getBoundingClientRect();
+      const g = (document.querySelector(`.grid[data-grid="${grid}"]`) as HTMLElement).getBoundingClientRect();
+      clone.remove();
+      return { left: r.left - g.left, width: r.width, top: r.top - g.top, height: r.height };
+    },
+    [grid, row, col] as const,
+  );
+}
+
+/** The window grid whose buffer is the current one. */
+export function currentWinGrid(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const p = (window as any).__propvim;
+    const win = await p.transport.call('nvim_get_current_win', []);
+    return [...p.state.wins.values()].find((b: any) => b.win === win && b.kind === 'win').grid;
+  });
+}
+
+/** Cursor element box relative to its grid. */
+export function cursorBox(page: Page): Promise<{ grid: number; left: number; width: number; top: number }> {
+  return page.evaluate(() => {
+    const el = document.querySelector<HTMLElement>('.cursor')!;
+    const gridEl = el.parentElement!;
+    const r = el.getBoundingClientRect();
+    const g = gridEl.getBoundingClientRect();
+    return { grid: Number(gridEl.dataset.grid), left: r.left - g.left, width: r.width, top: r.top - g.top };
+  });
+}

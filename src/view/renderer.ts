@@ -460,6 +460,7 @@ export class Renderer {
     let x = col * cw;
     let w = (cells.text[col + 1] === '' ? 2 : 1) * cw;
     const prose = v.isProse && col >= v.textoff;
+    const scale = prose ? (v.prose.get(cells.key)?.scale ?? 1) : 1;
     if (prose) {
       const map = this.columnMap(v, grid, row);
       if (map) {
@@ -499,7 +500,12 @@ export class Renderer {
     el.style.background = colorHex(bg);
     el.style.color = colorHex(fg);
     el.style.textDecoration = 'none';
-    el.textContent = text;
+    if (scale !== 1 && text) {
+      // A shrunk row: draw the character under the cursor at the row's scale.
+      el.innerHTML = `<span style="display:inline-block;transform:scaleX(${scale});transform-origin:0 0">${esc(text)}</span>`;
+    } else {
+      el.textContent = text;
+    }
     this.blink(mode.blinkwait, mode.blinkon, mode.blinkoff, `${gid}:${row}:${col}:${state.modeIdx}`);
   }
 
