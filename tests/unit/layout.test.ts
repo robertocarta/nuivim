@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildColumnMap, colToX, colWidth, placeFloat, textEnd, xToCol } from '../../src/model/layout';
+import { buildColumnMap, colToX, colWidth, placeFloat, proseStart, textEnd, xToCol } from '../../src/model/layout';
 
 /** Fake measurer: characters have the given widths, laid out from x0. */
 function fake(cells: string[], textoff: number, x0: number, widthOf: (ch: string) => number) {
@@ -20,6 +20,32 @@ describe('textEnd', () => {
     expect(textEnd([...'12 ab   '], 2)).toBe(5);
     expect(textEnd([...'12      '], 2)).toBe(2);
     expect(textEnd(['1', 'x', '漢', '', ' '], 1)).toBe(4);
+  });
+});
+
+describe('proseStart', () => {
+  const start = (line: string, textoff = 0) => proseStart([...line.padEnd(30)], textoff);
+  it('keeps leading blanks on cells', () => {
+    expect(start('    indented text')).toBe(4);
+    expect(start('plain text')).toBe(0);
+    expect(start('12  text', 2)).toBe(4);
+  });
+  it('keeps one list marker and the blanks after it', () => {
+    expect(start('- item')).toBe(2);
+    expect(start('   ○ Heading')).toBe(5);
+    expect(start('  12. step')).toBe(6);
+    expect(start('3) step')).toBe(3);
+    expect(start('-   spaced')).toBe(4);
+  });
+  it('does not treat text that only looks like a marker as one', () => {
+    expect(start('*emphasis* here')).toBe(0);
+    expect(start('-dash')).toBe(0);
+    expect(start('2026 was a year')).toBe(0);
+    expect(start('- [ ] task')).toBe(2);
+  });
+  it('stops at the end of the text', () => {
+    expect(start('      ')).toBe(0);
+    expect(start('   -')).toBe(3);
   });
 });
 

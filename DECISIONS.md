@@ -95,3 +95,8 @@ Choices the build spec left open, and departures from it. Newest last.
 ## 2026-10-18 — `vim.g.propvim_ui` flag
 **Decision:** The bridge sets `vim.g.propvim_ui = 1` when it runs (right after attach, so after `init.lua`).
 **Reason:** Requested so config code can behave differently in propvim, e.g. keep org heading bullets on the cursor line where raw stars would be wider than the bullet in a prose font. A variable read at use time avoids an environment variable, which `:terminal` children would inherit.
+
+## 2026-10-18 — Leading indentation and a list marker stay on cells in prose rows
+**Decision:** In a prose row, leading blanks, then optionally one list marker (`- * + • ○ ● ◦ ▪ ‣ ⁃ ► ▸`, or up to nine digits and `.`/`)`) followed by blanks, are drawn mono at their cells; proportional text starts after them (a per-row "text start", like `textoff`).
+**Reason:** Indentation reaches the UI as space cells (real spaces, `breakindent`, inline virtual text such as orgmode's virtual indent). Set in the prose font, a space is under half a cell, so a config that doubles org indentation looked like one character. Keeping the marker on cells too makes continuation rows and body text, which are indented by whole cells, line up exactly under their item or heading text.
+**Rejected:** Only blanks on cells (text after a prose-width marker then misaligns with its continuation rows by a few pixels).

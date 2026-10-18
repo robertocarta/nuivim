@@ -33,6 +33,32 @@ export function textEnd(cells: string[], textoff: number): number {
   return end;
 }
 
+/** List markers that keep their cell width at the start of a prose row (with the space after them). */
+const MARKERS = new Set(['-', '*', '+', '•', '○', '●', '◦', '▪', '‣', '⁃', '►', '▸']);
+
+/**
+ * First column of a prose row's proportional text. Leading blanks (indentation,
+ * 'breakindent', virtual indent) and one list marker with its following blanks
+ * keep their cell widths, so wrapped lines and body text indented with cells line
+ * up under the text of their item or heading.
+ */
+export function proseStart(cells: string[], textoff: number): number {
+  const end = textEnd(cells, textoff);
+  let c = textoff;
+  while (c < end && cells[c] === ' ') c++;
+  let m = c;
+  if (MARKERS.has(cells[m])) m++;
+  else {
+    while (m < end && m - c < 9 && cells[m] >= '0' && cells[m] <= '9') m++;
+    m = m > c && (cells[m] === '.' || cells[m] === ')') ? m + 1 : c;
+  }
+  if (m > c && m < end && cells[m] === ' ') {
+    c = m;
+    while (c < end && cells[c] === ' ') c++;
+  }
+  return c;
+}
+
 /**
  * Builds the mapping from measured character boxes. `measure(col)` returns the
  * box of the character in cell `col`, relative to the window's left edge.

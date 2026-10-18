@@ -71,6 +71,43 @@ test('S7: clicking the middle of the 5th character puts the cursor on column 4',
   expect(await call(page, 'nvim_win_get_cursor', [0])).toEqual([3, 4]);
 });
 
+test('indentation and list markers keep cell widths in prose rows', async ({ page }) => {
+  await open(page, { file: MD, cmds: ['set wrap linebreak breakindent breakindentopt=list:-1', 'set formatlistpat=^\\s*[-○]\\s\\+', '30vsplit', 'enew', 'set ft=markdown'] });
+  await lua(
+    page,
+    `vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+       '- an item long enough to wrap onto a second row here',
+       '○ Heading',
+       'body under the heading',
+     })
+     -- Like orgmode's virtual indent: inline virtual spaces before the heading and its body.
+     local ns = vim.api.nvim_create_namespace('t')
+     vim.api.nvim_buf_set_extmark(0, ns, 1, 0, { virt_text = { { '    ' } }, virt_text_pos = 'inline' })
+     vim.api.nvim_buf_set_extmark(0, ns, 2, 0, { virt_text = { { '      ' } }, virt_text_pos = 'inline' })`,
+  );
+  await input(page, 'G');
+  const grid = await currentWinGrid(page);
+  const cw = await page.evaluate(() => (window as any).__propvim.metrics.cw);
+  const rowOf = (text: string) =>
+    page.evaluate(
+      ([g, text]) => (window as any).__propvim.state.grids.get(g).rows.findIndex((r: any) => r.text.join('').includes(text)),
+      [grid, text] as const,
+    );
+  const itemRow = await rowOf('- an item');
+  // Item text after "- " and its wrapped continuation both start at cell 2.
+  expect(Math.abs((await proseCharBox(page, grid, itemRow, 2)).left - 2 * cw)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs((await proseCharBox(page, grid, itemRow + 1, 2)).left - 2 * cw)).toBeLessThanOrEqual(0.5);
+  // Heading text after 4 virtual spaces and "○ " starts at cell 6, like the body under it.
+  const heading = await rowOf('Heading');
+  const body = await rowOf('body under');
+  expect(Math.abs((await proseCharBox(page, grid, heading, 6)).left - 6 * cw)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs((await proseCharBox(page, grid, body, 6)).left - 6 * cw)).toBeLessThanOrEqual(0.5);
+  // The cursor on the body's first letter is drawn there too.
+  await input(page, '0');
+  expect(Math.abs((await cursorBox(page)).left - 6 * cw)).toBeLessThanOrEqual(0.5);
+  await screenshot(page, 'indent');
+});
+
 for (const overflow of ['shrink', 'clip'] as const) {
   test(`S8: 200 W characters in a narrow window (${overflow})`, async ({ page }) => {
     await open(page, { file: MD });

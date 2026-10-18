@@ -86,6 +86,10 @@ vim.g.propvim = {
   filetypes, such as a zen or reading page; popups (LSP hover, completion docs,
   pickers) show scratch buffers and stay monospace even when they hold Markdown. Everything else stays monospace, including plugin windows
   such as file trees and dashboards, which have their own filetypes.
+- In prose windows, leading indentation and one list marker with its space
+  (`- `, `* `, `1. `, `•`, `○`) keep their monospace widths, so nested lists,
+  wrapped lines (`breakindent`) and plugin indentation (orgmode's virtual
+  indent) line up as in a terminal; the text after them is proportional.
 - `mono_hl_groups`: text in these highlight groups (inline code, math) is set in
   the mono font but stays in the flow of the line. A group also matches its
   dotted children (`@markup.raw` matches `@markup.raw.markdown_inline`).

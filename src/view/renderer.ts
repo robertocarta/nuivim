@@ -3,7 +3,7 @@
 
 import type { Config } from '../config';
 import { effectiveColors, colorHex, hasOwnBackground } from '../model/hl';
-import { buildColumnMap, colToX, colWidth, placeFloat, textEnd, xToCol, type ColumnMap } from '../model/layout';
+import { buildColumnMap, colToX, colWidth, placeFloat, proseStart, textEnd, xToCol, type ColumnMap } from '../model/layout';
 import type { Grid, Row } from '../model/grid';
 import type { UiState, WinBox } from '../model/state';
 import type { Metrics } from './metrics';
@@ -17,6 +17,8 @@ interface ProseRow {
   len: Int32Array;
   /** Horizontal scale from overflow = shrink (1 when the text fits). */
   scale: number;
+  /** First proportional column: indentation and a list marker before it stay on cells. */
+  start: number;
   map?: ColumnMap;
 }
 
@@ -164,10 +166,9 @@ export class Renderer {
     }
 
     // Read phase: overflow of freshly painted prose rows, then one write pass.
-    const avail = (v: GridView) => v.w - v.textoff * cw;
     const widths = painted.map(([, pr]) => pr.pc.getBoundingClientRect().width);
     painted.forEach(([v, pr], i) => {
-      const a = avail(v);
+      const a = v.w - pr.start * cw;
       if (widths[i] > a + 0.5 && this.config.overflow === 'shrink') {
         pr.scale = a / widths[i];
         pr.pc.style.transform = `scaleX(${pr.scale})`;
@@ -248,7 +249,7 @@ export class Renderer {
     const { cw } = this.metrics;
     const { text, hl } = row;
     const width = text.length;
-    const textoff = v.textoff;
+    const textoff = proseStart(text, v.textoff);
     const end = textEnd(text, textoff);
     const spanIdx = new Int32Array(width).fill(-1);
     const off = new Int32Array(width);
@@ -283,7 +284,7 @@ export class Renderer {
       this.monoHtml(row, 0, textoff) +
       `<div class="pt" style="left:${px(textoff * cw)};width:${px((width - textoff) * cw)}"><span class="pc">${runs}</span>${filler}</div>`;
     const pc = el.querySelector<HTMLElement>('.pc')!;
-    return { pc, spanIdx, off, len, scale: 1 };
+    return { pc, spanIdx, off, len, scale: 1, start: textoff };
   }
 
   /**
@@ -312,7 +313,7 @@ export class Renderer {
       wanted.set(key, wanted.size);
       html += `<span class="${spans[span].className}">${esc(texts[span].slice(0, off))}</span>`;
     };
-    for (let c = v.textoff; c < row.text.length; c++) {
+    for (let c = pr.start; c < row.text.length; c++) {
       if (pr.spanIdx[c] < 0) continue;
       need(pr.spanIdx[c], pr.off[c]);
       need(pr.spanIdx[c], pr.off[c] + pr.len[c]);
@@ -332,7 +333,7 @@ export class Renderer {
       if (span < 0 || !rects[span]) return null;
       return { left: x(span, pr.off[col]), right: x(span, pr.off[col] + pr.len[col]) };
     };
-    pr.map = buildColumnMap(row.text, v.textoff, this.metrics.cw, this.metrics.proseSpace, measure);
+    pr.map = buildColumnMap(row.text, pr.start, this.metrics.cw, this.metrics.proseSpace, measure);
     return pr.map;
   }
 
@@ -441,7 +442,9 @@ export class Renderer {
     const sr = this.screen.getBoundingClientRect();
     const { row, col } = state.cursor;
     const x = (v?.x ?? 0) + this.colX(state.cursor.grid, row, col, state);
-    return { x: sr.left + x, y: sr.top + (v?.y ?? 0) + row * this.metrics.ch, h: this.metrics.ch, prose: !!v?.isProse && col >= v.textoff };
+    const key = state.grids.get(state.cursor.grid)?.rows[row]?.key;
+    const start = key !== undefined ? v?.prose.get(key)?.start : undefined;
+    return { x: sr.left + x, y: sr.top + (v?.y ?? 0) + row * this.metrics.ch, h: this.metrics.ch, prose: start !== undefined && col >= start };
   }
 
   private paintCursor(state: UiState): void {
@@ -460,8 +463,9 @@ export class Renderer {
 
     let x = col * cw;
     let w = (cells.text[col + 1] === '' ? 2 : 1) * cw;
-    const prose = v.isProse && col >= v.textoff;
-    const scale = prose ? (v.prose.get(cells.key)?.scale ?? 1) : 1;
+    const pr = v.isProse ? v.prose.get(cells.key) : undefined;
+    const prose = !!pr && col >= pr.start;
+    const scale = prose ? pr!.scale : 1;
     if (prose) {
       const map = this.columnMap(v, grid, row);
       if (map) {

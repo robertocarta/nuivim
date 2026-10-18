@@ -101,7 +101,7 @@ export function proseCharBox(page: Page, grid: number, row: number, col: number)
       const rowKey = p.state.grids.get(grid).rows[row].key;
       const rowEl: HTMLElement = view.rowEls.get(rowKey);
       let off = 0;
-      for (let c = view.textoff; c < col; c++) off += cells[c].length;
+      for (let c = view.prose.get(rowKey).start; c < col; c++) off += cells[c].length;
       const len = cells[col].length;
       const clone = rowEl.querySelector('.pt')!.cloneNode(true) as HTMLElement;
       clone.style.visibility = 'hidden';
