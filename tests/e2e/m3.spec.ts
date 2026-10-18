@@ -130,7 +130,7 @@ test('linespace in vim.g.propvim adds pixels to every row and overrides the opti
   expect(rows).toBe(await page.evaluate(() => Math.floor(window.innerHeight / (window as any).__propvim.metrics.ch)));
 });
 
-test('Cmd keys: the bridge maps <D-c>/<D-v>/<D-a> only where the user has not', async ({ page }) => {
+test('bridge: sets vim.g.propvim_ui and maps <D-c>/<D-v>/<D-a> only where the user has not', async ({ page }) => {
   await open(page, { file: MD, cmds: ['nnoremap <D-a> <Nop>'] });
   await input(page, '');
   const maps = await lua<Record<string, string>>(
@@ -138,6 +138,7 @@ test('Cmd keys: the bridge maps <D-c>/<D-v>/<D-a> only where the user has not', 
     `local function m(lhs, mode) return vim.fn.maparg(lhs, mode, false, true).desc or vim.fn.maparg(lhs, mode) end
      return { c = m('<D-c>', 'x'), v_n = m('<D-v>', 'n'), v_i = m('<D-v>', 'i'), v_c = m('<D-v>', 'c'), a = m('<D-a>', 'n') }`,
   );
+  expect(await lua(page, 'return vim.g.propvim_ui')).toBe(1);
   expect(maps).toEqual({ c: 'propvim: copy', v_n: 'propvim: paste', v_i: 'propvim: paste', v_c: 'propvim: paste', a: '<Nop>' });
 });
 

@@ -91,3 +91,7 @@ Choices the build spec left open, and departures from it. Newest last.
 **Decision:** A float is drawn like a prose window when its buffer has a prose filetype and an empty `buftype` (a file buffer). All other floats stay mono. Window info is now queried for floats too (not for the popup menu, which has no window).
 **Reason:** Zen and reading-page plugins (snacks zen, zen-mode) show the file being edited in a large float, which the spec's "every float is mono" rule turned back to monospace. LSP hover, completion documentation and picker windows use scratch buffers (`buftype=nofile`), so they keep their exact monospace layout even when their filetype is markdown.
 **Known edge:** a picker that previews an already-open prose file by showing that very buffer will preview it in the prose font.
+
+## 2026-10-18 — `vim.g.propvim_ui` flag
+**Decision:** The bridge sets `vim.g.propvim_ui = 1` when it runs (right after attach, so after `init.lua`).
+**Reason:** Requested so config code can behave differently in propvim, e.g. keep org heading bullets on the cursor line where raw stars would be wider than the bullet in a prose font. A variable read at use time avoids an environment variable, which `:terminal` children would inherit.

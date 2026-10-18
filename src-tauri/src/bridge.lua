@@ -3,6 +3,10 @@
 -- in the user's config except mapping <D-c>, <D-v> and <D-a> where unmapped.
 local chan = ...
 
+-- Lets the user's config tell a propvim session apart (read at draw time, e.g. by
+-- decoration providers; it is set after startup, so not visible in init.lua).
+vim.g.propvim_ui = 1
+
 local function send(kind, payload)
   pcall(vim.rpcnotify, chan, 'propvim', kind, payload)
 end

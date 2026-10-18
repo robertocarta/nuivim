@@ -97,6 +97,16 @@ vim.g.propvim = {
 - `option_is_meta`: which Option key sends `<M-…>`. Otherwise Option types its
   character as usual (`å`, `…`).
 
+### Telling a propvim session apart
+
+Inside propvim, `vim.g.propvim_ui` is `1`. It is set right after startup, so
+`init.lua` cannot see it yet, but anything evaluated later can (decoration
+providers, autocmds after `VimEnter`, keymaps):
+
+```lua
+if vim.g.propvim_ui then ... end
+```
+
 ### Wrapping prose
 
 Neovim still wraps lines by character count, so proportional lines end a little
