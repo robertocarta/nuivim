@@ -67,3 +67,14 @@ Choices the build spec left open, and departures from it. Newest last.
 
 ## 2026-10-18 — Floats use propvim's own placement, not `screen_row`/`screen_col`
 **Decision:** Floats are placed by the spec's anchor rules (anchor grid origin + anchor point, corner, then shifted inside the window). Neovim's `screen_row`/`screen_col` from `win_float_pos` are ignored: they assume monospace text.
+
+## 2026-10-18 — Opening paths: `nvim_cmd` drop with `fnameescape`
+**Decision:** Each opened or dropped path runs `nvim_cmd({cmd='drop', args={vim.fn.fnameescape(path)}}, {})` (inside one `nvim_exec_lua`).
+**Finding:** `:drop` takes a file *list*, so even through `nvim_cmd` an unescaped argument is split at spaces and `%`/`#` are expanded (`notes 100% done.md` failed with E499). `fnameescape` makes the path one literal list item; no command string is ever built from a path.
+
+## 2026-10-18 — Universal build toolchain; no symbol stripping
+**Decision:** `scripts/build-universal.sh` uses a project-local rustup toolchain in `.toolchain/` (git-ignored) when present. The release profile does not strip symbols.
+**Reason:** Homebrew's Rust has no x86_64 standard library and the machine's rustup toolchain (1.76) is older than Tauri 2's minimum; installing into the project folder avoids changing the user's global toolchain. Stripping calls `rust-objcopy`, which fails in the minimal toolchain profile (missing `libLLVM.dylib`); the unstripped universal app is 14 MB (4.7 MB as a .dmg).
+
+## 2026-10-18 — Idle CPU measurement
+**Finding:** With the built app, a file open and the window unfocused, propvim, its WebKit processes (WebContent, GPU) and a `--clean` Neovim averaged 0.00% CPU over 30 one-second `ps` samples after 60 s idle. With the developer's own Neovim config the total was 1.4%, all of it inside Neovim (plugin Lua timers polling `fs_stat`), and 0.0% in propvim and WebKit.

@@ -179,8 +179,10 @@ async function main(): Promise<void> {
     );
   });
 
+  // :drop takes a file list, so each path is escaped as one list item (spaces, %, #).
+  const DROP_LUA = "vim.api.nvim_cmd({ cmd = 'drop', args = { vim.fn.fnameescape(...) } }, {})";
   transport.onOpenFiles((paths) => {
-    for (const p of paths) transport.call('nvim_cmd', [{ cmd: 'drop', args: [p] }, {}]).catch((e) => console.error(e));
+    for (const p of paths) transport.call('nvim_exec_lua', [DROP_LUA, [p]]).catch((e) => console.error(e));
   });
 
   attachKeyboard(ta, {
