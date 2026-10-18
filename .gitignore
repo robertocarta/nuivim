@@ -1,0 +1,9 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+test-results/
+playwright-report/
+tests/e2e/screenshots/*.png
+!tests/e2e/screenshots/.gitkeep
+.DS_Store

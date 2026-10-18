@@ -1,0 +1,149 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg, #fff);
+  color: var(--fg, #000);
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#screen {
+  position: relative;
+  overflow: hidden;
+  font-family: var(--mono-font);
+  font-size: var(--mono-size);
+  line-height: var(--ch);
+  font-kerning: none;
+  font-variant-ligatures: none;
+}
+
+.grid {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--ch);
+}
+
+.row > span {
+  position: absolute;
+  top: 0;
+  height: var(--ch);
+  white-space: pre;
+}
+
+/* Prose text area: one flow of spans from textoff to the window's right edge. */
+.pt {
+  position: absolute;
+  top: 0;
+  height: var(--ch);
+  display: flex;
+  overflow: hidden;
+  font-family: var(--prose-font);
+  font-size: var(--prose-size);
+  font-kerning: normal;
+  font-variant-ligatures: normal;
+}
+
+.pc {
+  display: flex;
+  flex: none;
+  transform-origin: 0 0;
+}
+
+.pc > span {
+  white-space: pre;
+  height: var(--ch);
+}
+
+.pf {
+  flex: 1;
+  height: var(--ch);
+}
+
+.cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  overflow: hidden;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.cursor.cp {
+  font-family: var(--prose-font);
+  font-size: var(--prose-size);
+}
+
+body.unfocused .cursor {
+  animation: none !important;
+}
+
+#input {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 1px;
+  padding: 0;
+  border: 0;
+  margin: 0;
+  opacity: 0;
+  resize: none;
+  overflow: hidden;
+  white-space: pre;
+  font-family: var(--mono-font);
+  font-size: var(--mono-size);
+}
+
+#ime {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000000;
+  white-space: pre;
+  line-height: var(--ch);
+  background: var(--bg);
+  color: var(--fg);
+  text-decoration: underline;
+  font-family: var(--mono-font);
+  font-size: var(--mono-size);
+  pointer-events: none;
+}
+
+#ime.cp {
+  font-family: var(--prose-font);
+  font-size: var(--prose-size);
+}
+
+body.page {
+  overflow: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  font: 15px/1.5 -apple-system, system-ui, sans-serif;
+  background: #fafafa;
+  color: #222;
+}
+
+body.page main {
+  max-width: 640px;
+  margin: 64px auto;
+  padding: 0 16px;
+}
+
+body.page pre {
+  background: #eee;
+  padding: 12px;
+  overflow: auto;
+  font: 12px/1.4 Menlo, monospace;
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "propvim's main window: its own commands, events and window title only.",
+  "windows": ["main"],
+  "permissions": ["core:event:default", "core:window:allow-set-title"]
+}
