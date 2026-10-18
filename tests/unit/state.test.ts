@@ -55,7 +55,7 @@ describe('recorded startup', () => {
     expect(state.hlGroups.get('StatusLine')).toBeDefined();
   });
 
-  it('queues a window info query for each win_pos', () => {
+  it('queues a window info query for each window', () => {
     expect(state.takeWinQueries()).toEqual([1000]);
     expect(state.takeWinQueries()).toEqual([]);
   });
@@ -206,6 +206,12 @@ describe('hand-written events', () => {
     expect(s.wins.get(5)!.float!.order).toBeLessThan(s.wins.get(6)!.float!.order);
     expect(s.wins.get(5)!.float!.anchor).toBe('NE');
     expect(s.wins.get(6)!.float).toMatchObject({ anchorRow: 2.5, mouseEnabled: false });
+  });
+
+  it('queries window info for floats that have a window, not for the popup menu', () => {
+    const s = new UiState();
+    s.apply([['win_float_pos', [5, 1001, 'NW', 1, 0, 0, true, 50]], ['win_float_pos', [6, -1, 'NW', 2, 1, 1, false, 100]]]);
+    expect(s.takeWinQueries()).toEqual([1001]);
   });
 
   it('turns a float back into a window on win_pos', () => {

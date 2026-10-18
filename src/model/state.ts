@@ -149,7 +149,7 @@ export class UiState {
 
   /** Queues every window grid for a fresh info query. */
   queueAllWinQueries(): void {
-    for (const box of this.wins.values()) if (box.kind === 'win') this.queueWinQuery(box.win);
+    for (const box of this.wins.values()) if (box.kind !== 'msg') this.queueWinQuery(box.win);
   }
 
   takeWinQueries(): number[] {
@@ -227,6 +227,8 @@ export class UiState {
       zindex: num(args[7], 50),
       order,
     };
+    // A float showing a file (a zen or reading page) can be prose; the popup menu has no window (-1).
+    this.queueWinQuery(b.win);
   }
 
   msgSetPos(args: unknown[]): void {

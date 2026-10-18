@@ -82,7 +82,9 @@ vim.g.propvim = {
 - An unknown key or a wrong value is ignored (the default stays) and shows one
   warning, e.g. `propvim: overflow must be "shrink" or "clip"`.
 - `prose_filetypes`: windows showing these filetypes (and not terminals) get
-  proportional text. Everything else stays monospace, including plugin windows
+  proportional text. So do floating windows that show a file with one of these
+  filetypes, such as a zen or reading page; popups (LSP hover, completion docs,
+  pickers) show scratch buffers and stay monospace even when they hold Markdown. Everything else stays monospace, including plugin windows
   such as file trees and dashboards, which have their own filetypes.
 - `mono_hl_groups`: text in these highlight groups (inline code, math) is set in
   the mono font but stays in the flow of the line. A group also matches its

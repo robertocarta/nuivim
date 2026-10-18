@@ -86,3 +86,8 @@ Choices the build spec left open, and departures from it. Newest last.
 ## 2026-10-18 — `linespace` config key
 **Decision:** `vim.g.propvim.linespace` (whole pixels, 0–100) overrides Neovim's `'linespace'` option when set.
 **Reason:** Requested so row spacing can be set for propvim alone; `'linespace'` is also read by other GUIs (Neovide). Prose needs more spacing than code: American Typewriter at its normal line height measured 2.25–2.4 × x-height baseline to baseline, against 3.0 in the reference the user wanted.
+
+## 2026-10-18 — Floats that show a prose file are prose
+**Decision:** A float is drawn like a prose window when its buffer has a prose filetype and an empty `buftype` (a file buffer). All other floats stay mono. Window info is now queried for floats too (not for the popup menu, which has no window).
+**Reason:** Zen and reading-page plugins (snacks zen, zen-mode) show the file being edited in a large float, which the spec's "every float is mono" rule turned back to monospace. LSP hover, completion documentation and picker windows use scratch buffers (`buftype=nofile`), so they keep their exact monospace layout even when their filetype is markdown.
+**Known edge:** a picker that previews an already-open prose file by showing that very buffer will preview it in the prose font.

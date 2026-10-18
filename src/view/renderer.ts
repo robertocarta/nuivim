@@ -107,14 +107,15 @@ export class Renderer {
     state.markAllDirty();
   }
 
+  /**
+   * Prose: a window with a prose filetype, or a float showing a file buffer with
+   * one (a zen or reading page). Popups (hover, completion docs, pickers) use
+   * scratch buffers, so they stay mono even when their filetype is markdown.
+   */
   private isProseBox(box: WinBox | undefined): boolean {
-    return (
-      !!box &&
-      box.kind === 'win' &&
-      !!box.info &&
-      box.info.buftype !== 'terminal' &&
-      this.config.prose_filetypes.includes(box.info.filetype)
-    );
+    const info = box?.info;
+    if (!box || !info || info.buftype === 'terminal' || !this.config.prose_filetypes.includes(info.filetype)) return false;
+    return box.kind === 'win' || (box.kind === 'float' && info.buftype === '');
   }
 
   paint(state: UiState): void {

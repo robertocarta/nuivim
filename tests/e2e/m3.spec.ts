@@ -50,6 +50,35 @@ test('S9: cursor-relative floats after a prose word put each anchor corner at th
   await screenshot(page, 'S9-floats');
 });
 
+test('a float showing a prose file (zen / reading page) is prose; a markdown scratch popup stays mono', async ({ page }) => {
+  await open(page, { file: MD });
+  await lua(
+    page,
+    `local cols, lines = vim.o.columns, vim.o.lines
+     -- Like snacks zen: the current file in a large centred float.
+     _G.page = vim.api.nvim_open_win(0, true, { relative = 'editor', row = 1, col = 10, width = cols - 20, height = lines - 4 })
+     -- Like an LSP hover: a markdown scratch buffer.
+     local b = vim.api.nvim_create_buf(false, true)
+     vim.bo[b].filetype = 'markdown'
+     vim.api.nvim_buf_set_lines(b, 0, -1, false, { '**hover** text' })
+     _G.hover = vim.api.nvim_open_win(b, false, { relative = 'cursor', row = 1, col = 0, width = 20, height = 1, border = 'single' })`,
+  );
+  await input(page, '');
+  const pageWin = await lua<number>(page, 'return _G.page');
+  const hoverWin = await lua<number>(page, 'return _G.hover');
+  const prose = (win: number) =>
+    page.evaluate((win) => {
+      const p = (window as any).__propvim;
+      const box = [...p.state.wins.values()].find((b: any) => b.win === win);
+      return p.renderer.views.get(box.grid).isProse;
+    }, win);
+  await expect.poll(() => prose(pageWin)).toBe(true);
+  expect(await prose(hoverWin)).toBe(false);
+  // The cursor is in the page float and lands on prose text.
+  const cur = await page.evaluate(() => document.querySelector('.cursor')!.className);
+  expect(cur).toContain('cp');
+});
+
 test('S10: inline code in Markdown renders in the mono font', async ({ page }) => {
   await open(page, { file: MD });
   const fonts = await page.evaluate(async () => {
