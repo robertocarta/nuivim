@@ -46,11 +46,15 @@ const sheet = document.createElement('style');
 sheet.id = 'propvim-hl';
 document.head.appendChild(sheet);
 
-/** Ids of highlights that stay monospace inside prose rows (mono_hl_groups). */
+/**
+ * Ids of highlights that stay monospace inside prose rows (mono_hl_groups). A
+ * group also matches its dotted children, as treesitter captures fall back:
+ * "@markup.raw" matches "@markup.raw.markdown_inline".
+ */
 export function monoHlIds(state: UiState, groups: string[]): Set<number> {
-  const wanted = new Set(groups);
   const ids = new Set<number>();
-  for (const [id, attr] of state.hl) if (attr.names.some((n) => wanted.has(n))) ids.add(id);
+  const matches = (name: string) => groups.some((g) => name === g || name.startsWith(g + '.'));
+  for (const [id, attr] of state.hl) if (attr.names.some(matches)) ids.add(id);
   return ids;
 }
 

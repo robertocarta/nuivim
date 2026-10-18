@@ -55,3 +55,15 @@ Choices the build spec left open, and departures from it. Newest last.
 ## 2026-10-18 — Prose column offsets come from element widths, not partial Range rects
 **Decision:** The column-to-x mapping takes each span's exact box (`getBoundingClientRect` of the element) plus the width of the text before the column, measured as a hidden element with the same classes, times the row's shrink scale.
 **Reason:** WebKit rounds the rect of a Range covering part of a text node up to whole pixels (seen in Playwright WebKit: widths 9, 17, 26 for 8.43, 16.86, 25.29), which alone would break the ±0.5px tolerance. Element widths are exact.
+
+## 2026-10-18 — mono_hl_groups match the group that holds the attributes
+**Decision:** A highlight is mono when any `hi_name` in its ext_hlstate info equals a listed group or starts with it plus a dot (`@markup.raw` matches `@markup.raw.markdown_inline`).
+**Finding:** `hi_name` is the final group where the attributes are defined, after links and treesitter fallback. With Neovim's default colorscheme `@markup.raw` is undefined, so inline code arrives as `Special` and cannot be told apart from the 28 other groups that end at `Special`. Colorschemes that define `@markup.raw` (most do) work as the spec intends; the test config defines it the same way.
+**Rejected:** Resolving listed groups to their link targets (would make every `Special` run mono); setting `altfont` or other attributes on the user's highlight groups from the bridge (changes the user's highlights and breaks treesitter fallback for groups it defines).
+
+## 2026-10-18 — Which prose row anchors a float horizontally
+**Decision:** When a float's anchor grid holds the cursor and its anchor row is the cursor row or the row below it, the cursor row's column-to-x mapping is used; otherwise the anchor row's (clamped into the grid).
+**Reason:** Completion menus and hover windows are placed on the row *below* the cursor (`anchor_row = cursor row + 1`), but the word they belong to is on the cursor row; that row below may hold unrelated text whose mapping would put the float in the wrong place.
+
+## 2026-10-18 — Floats use propvim's own placement, not `screen_row`/`screen_col`
+**Decision:** Floats are placed by the spec's anchor rules (anchor grid origin + anchor point, corner, then shifted inside the window). Neovim's `screen_row`/`screen_col` from `win_float_pos` are ignored: they assume monospace text.
