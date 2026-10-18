@@ -60,6 +60,14 @@ describe('mergeConfig', () => {
     ]);
   });
 
+  it('accepts linespace as whole pixels only', () => {
+    expect(mergeConfig({ linespace: 6 }).config.linespace).toBe(6);
+    expect(mergeConfig({}).config.linespace).toBeUndefined();
+    const bad = mergeConfig({ linespace: 2.5 });
+    expect(bad.config.linespace).toBeUndefined();
+    expect(bad.warnings).toEqual(['linespace must be a whole number of pixels between 0 and 100']);
+  });
+
   it('rejects a non-table value', () => {
     expect(mergeConfig('x').warnings).toEqual(['vim.g.propvim must be a table of options']);
   });

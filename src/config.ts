@@ -13,6 +13,8 @@ export interface Config {
   mono_hl_groups: string[];
   overflow: 'shrink' | 'clip';
   option_is_meta: OptionIsMeta;
+  /** Extra pixels between rows; undefined: Neovim's 'linespace' option. */
+  linespace?: number;
 }
 
 export const DEFAULTS: Readonly<Config> = Object.freeze({
@@ -24,6 +26,7 @@ export const DEFAULTS: Readonly<Config> = Object.freeze({
   mono_hl_groups: ['@markup.raw', '@markup.raw.block', '@markup.math', 'markdownCode', 'markdownCodeBlock', 'texMathZone'],
   overflow: 'shrink',
   option_is_meta: 'none',
+  linespace: undefined,
 });
 
 export const FALLBACK_MONO_FONT = 'Menlo';
@@ -33,6 +36,7 @@ type Check = (v: unknown) => string | null; // null = valid, else the expected-t
 
 const isString: Check = (v) => (typeof v === 'string' && v.trim() !== '' ? null : 'must be a font name (string)');
 const isSize: Check = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 4 && v <= 200 ? null : 'must be a number of points between 4 and 200');
+const isLinespace: Check = (v) => (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100 ? null : 'must be a whole number of pixels between 0 and 100');
 const isStringList: Check = (v) =>
   Array.isArray(v) && v.every((x) => typeof x === 'string') ? null : 'must be a list of strings';
 const oneOf = (...values: string[]): Check => (v) =>
@@ -47,6 +51,7 @@ const CHECKS: Record<keyof Config, Check> = {
   mono_hl_groups: isStringList,
   overflow: oneOf('shrink', 'clip'),
   option_is_meta: oneOf('none', 'left', 'right', 'both'),
+  linespace: isLinespace,
 };
 
 /**

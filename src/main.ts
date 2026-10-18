@@ -66,7 +66,7 @@ async function main(): Promise<void> {
       monoSize: Math.max(4, (config.mono_size ?? gf.size ?? FALLBACK_MONO_SIZE) + sizeDelta),
       proseFamily: cssFamily(config.prose_font) + ', serif',
       proseSize: Math.max(4, config.prose_size + sizeDelta),
-      linespace: state.options.linespace,
+      linespace: config.linespace ?? state.options.linespace,
     };
   };
   let metrics: Metrics = measure(fonts());

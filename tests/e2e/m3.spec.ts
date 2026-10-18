@@ -90,6 +90,17 @@ test('S11: :PropvimReload applies a new prose_size; a bad value warns and the ap
   expect(await lua(page, 'return vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]')).toBe('');
 });
 
+test('linespace in vim.g.propvim adds pixels to every row and overrides the option', async ({ page }) => {
+  await open(page, { file: MD, cmds: ['set linespace=2'] });
+  const ch = () => page.evaluate(() => (window as any).__propvim.metrics.ch);
+  const before = await ch();
+  await lua(page, 'vim.g.propvim = { linespace = 8 }');
+  await input(page, ':PropvimReload<CR>');
+  await expect.poll(ch).toBe(before + 6);
+  const rows = await lua<number>(page, 'return vim.o.lines');
+  expect(rows).toBe(await page.evaluate(() => Math.floor(window.innerHeight / (window as any).__propvim.metrics.ch)));
+});
+
 test('Cmd keys: the bridge maps <D-c>/<D-v>/<D-a> only where the user has not', async ({ page }) => {
   await open(page, { file: MD, cmds: ['nnoremap <D-a> <Nop>'] });
   await input(page, '');

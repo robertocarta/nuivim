@@ -62,6 +62,7 @@ vim.g.propvim = {
   mono_hl_groups = { "@markup.raw", "markdownCode", "texMathZone" },
   overflow = "shrink",             -- or "clip"
   option_is_meta = "none",         -- "none" | "left" | "right" | "both"
+  linespace = 6,                   -- extra pixels between rows, propvim only
 }
 ```
 
@@ -75,6 +76,7 @@ vim.g.propvim = {
 | `mono_hl_groups` | list of highlight groups | @markup.raw, @markup.raw.block, @markup.math, markdownCode, markdownCodeBlock, texMathZone |
 | `overflow` | `"shrink"` or `"clip"` | shrink |
 | `option_is_meta` | `"none"`, `"left"`, `"right"`, `"both"` | none |
+| `linespace` | whole pixels, 0–100 | Neovim's `'linespace'` option (0) |
 
 - Change the table and run `:PropvimReload` to apply it without restarting.
 - An unknown key or a wrong value is ignored (the default stays) and shows one
@@ -87,6 +89,9 @@ vim.g.propvim = {
   dotted children (`@markup.raw` matches `@markup.raw.markdown_inline`).
 - `overflow`: what happens when a line set in the prose font is wider than its
   window, which is rare: `shrink` narrows that line to fit, `clip` cuts it off.
+- `linespace`: extra pixels between rows, for every row (prose and mono alike).
+  Unlike Neovim's `'linespace'` option, which other GUIs such as Neovide also
+  read, it only affects propvim.
 - `option_is_meta`: which Option key sends `<M-…>`. Otherwise Option types its
   character as usual (`å`, `…`).
 
