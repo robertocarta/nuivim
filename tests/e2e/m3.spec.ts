@@ -27,7 +27,7 @@ test('S9: cursor-relative floats after a prose word put each anchor corner at th
   await input(page, '');
   const boxes = await page.evaluate(
     ({ grid, wins }) => {
-      const p = (window as any).__propvim;
+      const p = (window as any).__nuivim;
       const g = document.querySelector<HTMLElement>(`.grid[data-grid="${grid}"]`)!.getBoundingClientRect();
       return wins.map((w: number) => {
         const box = [...p.state.wins.values()].find((b: any) => b.win === w);
@@ -37,7 +37,7 @@ test('S9: cursor-relative floats after a prose word put each anchor corner at th
     },
     { grid, wins },
   );
-  const ch = await page.evaluate(() => (window as any).__propvim.metrics.ch);
+  const ch = await page.evaluate(() => (window as any).__nuivim.metrics.ch);
   const rowTop = cur.top;
   corners.forEach((corner, i) => {
     const b = boxes[i];
@@ -68,7 +68,7 @@ test('a float showing a prose file (zen / reading page) is prose; a markdown scr
   const hoverWin = await lua<number>(page, 'return _G.hover');
   const prose = (win: number) =>
     page.evaluate((win) => {
-      const p = (window as any).__propvim;
+      const p = (window as any).__nuivim;
       const box = [...p.state.wins.values()].find((b: any) => b.win === win);
       return p.renderer.views.get(box.grid).isProse;
     }, win);
@@ -82,7 +82,7 @@ test('a float showing a prose file (zen / reading page) is prose; a markdown scr
 test('S10: inline code in Markdown renders in the mono font', async ({ page }) => {
   await open(page, { file: MD });
   const fonts = await page.evaluate(async () => {
-    const p = (window as any).__propvim;
+    const p = (window as any).__nuivim;
     const spans = [...document.querySelectorAll<HTMLElement>('.pc > span')];
     const code = spans.find((s) => s.textContent!.includes('inline code'))!;
     const plain = spans.find((s) => s.textContent!.startsWith('Some'))!;
@@ -93,44 +93,44 @@ test('S10: inline code in Markdown renders in the mono font', async ({ page }) =
   expect(fonts.mono).toContain(fonts.code.split(',')[0].replace(/"/g, ''));
 });
 
-test('S11: :PropvimReload applies a new prose_size; a bad value warns and the app keeps running', async ({ page }) => {
+test('S11: :NuivimReload applies a new prose_size; a bad value warns and the app keeps running', async ({ page }) => {
   await open(page, { file: MD });
   const size = () => page.evaluate(() => getComputedStyle(document.querySelector('.pc > span')!).fontSize);
   expect(await size()).toBe('16px');
-  await lua(page, 'vim.g.propvim = { prose_size = 22 }');
-  await input(page, ':PropvimReload<CR>');
+  await lua(page, 'vim.g.nuivim = { prose_size = 22 }');
+  await input(page, ':NuivimReload<CR>');
   await expect.poll(size).toBe('22px');
 
-  await lua(page, "vim.g.propvim = { prose_size = 22, overflow = 'bad' }");
-  await input(page, ':PropvimReload<CR>');
+  await lua(page, "vim.g.nuivim = { prose_size = 22, overflow = 'bad' }");
+  await input(page, ':NuivimReload<CR>');
   const messages = async () =>
     page.evaluate(() => {
-      const p = (window as any).__propvim;
+      const p = (window as any).__nuivim;
       const msg = [...p.state.wins.values()].find((b: any) => b.kind === 'msg');
       return msg ? p.state.grids.get(msg.grid).rows.map((r: any) => r.text.join('')).join('\n') : '';
     });
-  await expect.poll(messages).toContain('propvim: overflow must be "shrink" or "clip"');
+  await expect.poll(messages).toContain('nuivim: overflow must be "shrink" or "clip"');
   const dom = await page.evaluate(() => document.getElementById('screen')!.textContent);
-  expect(dom).toContain('propvim: overflow must be');
+  expect(dom).toContain('nuivim: overflow must be');
   expect(await size()).toBe('22px');
-  expect(await page.evaluate(() => (window as any).__propvim.config.overflow)).toBe('shrink');
+  expect(await page.evaluate(() => (window as any).__nuivim.config.overflow)).toBe('shrink');
   // Still responsive.
   await input(page, '<CR>ggdd');
   expect(await lua(page, 'return vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]')).toBe('');
 });
 
-test('linespace in vim.g.propvim adds pixels to every row and overrides the option', async ({ page }) => {
+test('linespace in vim.g.nuivim adds pixels to every row and overrides the option', async ({ page }) => {
   await open(page, { file: MD, cmds: ['set linespace=2'] });
-  const ch = () => page.evaluate(() => (window as any).__propvim.metrics.ch);
+  const ch = () => page.evaluate(() => (window as any).__nuivim.metrics.ch);
   const before = await ch();
-  await lua(page, 'vim.g.propvim = { linespace = 8 }');
-  await input(page, ':PropvimReload<CR>');
+  await lua(page, 'vim.g.nuivim = { linespace = 8 }');
+  await input(page, ':NuivimReload<CR>');
   await expect.poll(ch).toBe(before + 6);
   const rows = await lua<number>(page, 'return vim.o.lines');
-  expect(rows).toBe(await page.evaluate(() => Math.floor(window.innerHeight / (window as any).__propvim.metrics.ch)));
+  expect(rows).toBe(await page.evaluate(() => Math.floor(window.innerHeight / (window as any).__nuivim.metrics.ch)));
 });
 
-test('bridge: sets vim.g.propvim_ui and maps <D-c>/<D-v>/<D-a> only where the user has not', async ({ page }) => {
+test('bridge: sets vim.g.nuivim_ui and maps <D-c>/<D-v>/<D-a> only where the user has not', async ({ page }) => {
   await open(page, { file: MD, cmds: ['nnoremap <D-a> <Nop>'] });
   await input(page, '');
   const maps = await lua<Record<string, string>>(
@@ -138,14 +138,14 @@ test('bridge: sets vim.g.propvim_ui and maps <D-c>/<D-v>/<D-a> only where the us
     `local function m(lhs, mode) return vim.fn.maparg(lhs, mode, false, true).desc or vim.fn.maparg(lhs, mode) end
      return { c = m('<D-c>', 'x'), v_n = m('<D-v>', 'n'), v_i = m('<D-v>', 'i'), v_c = m('<D-v>', 'c'), a = m('<D-a>', 'n') }`,
   );
-  expect(await lua(page, 'return vim.g.propvim_ui')).toBe(1);
-  expect(maps).toEqual({ c: 'propvim: copy', v_n: 'propvim: paste', v_i: 'propvim: paste', v_c: 'propvim: paste', a: '<Nop>' });
+  expect(await lua(page, 'return vim.g.nuivim_ui')).toBe(1);
+  expect(maps).toEqual({ c: 'nuivim: copy', v_n: 'nuivim: paste', v_i: 'nuivim: paste', v_c: 'nuivim: paste', a: '<Nop>' });
 });
 
 test('Cmd-= / Cmd-- / Cmd-0 change both font sizes for the session', async ({ page }) => {
   await open(page, { file: MD });
   const sizes = () => page.evaluate(() => {
-    const f = (window as any).__propvim.metrics.fonts;
+    const f = (window as any).__nuivim.metrics.fonts;
     return [f.monoSize, f.proseSize];
   });
   const [mono, prose] = await sizes();
@@ -161,6 +161,6 @@ test('Cmd-= / Cmd-- / Cmd-0 change both font sizes for the session', async ({ pa
   await press('Equal');
   await input(page, '');
   const cols = await lua<number>(page, 'return vim.o.columns');
-  const expected = await page.evaluate(() => Math.floor(window.innerWidth / (window as any).__propvim.metrics.cw));
+  const expected = await page.evaluate(() => Math.floor(window.innerWidth / (window as any).__nuivim.metrics.cw));
   expect(cols).toBe(expected);
 });

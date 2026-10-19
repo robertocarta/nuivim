@@ -5,7 +5,7 @@ import { call, domRowText, expect, input, lua, open, screenRowText, screenshot }
 test('S1: every drawn row matches the screen text Neovim reports', async ({ page }) => {
   await open(page, { file: 'tests/fixtures/sample.lua' });
   const wins = await page.evaluate(() =>
-    [...(window as any).__propvim.state.wins.values()].filter((b: any) => b.kind === 'win').map((b: any) => ({ ...b })),
+    [...(window as any).__nuivim.state.wins.values()].filter((b: any) => b.kind === 'win').map((b: any) => ({ ...b })),
   );
   expect(wins).toHaveLength(1);
   const w = wins[0];
@@ -23,7 +23,7 @@ test('S2: :vsplit then :split gives three window boxes and separators on grid 1'
   await open(page, { file: 'tests/fixtures/sample.lua' });
   await input(page, ':vsplit<CR>:split<CR>');
   const boxes = await page.evaluate(() => {
-    const p = (window as any).__propvim;
+    const p = (window as any).__nuivim;
     return [...p.state.wins.values()]
       .filter((b: any) => b.kind === 'win' && !b.hidden)
       .map((b: any) => {
@@ -57,7 +57,7 @@ test('S3: float with border, box drawing, CJK and emoji keeps every character on
   );
   await input(page, '');
   const off = await page.evaluate(() => {
-    const p = (window as any).__propvim;
+    const p = (window as any).__nuivim;
     const cw: number = p.metrics.cw;
     const f = [...p.state.wins.values()].find((b: any) => b.kind === 'float');
     const gridEl = document.querySelector<HTMLElement>(`.grid[data-grid="${f.grid}"]`)!;
@@ -95,7 +95,7 @@ test('S4: insert-mode completion popup with 5 candidates aligns to cells', async
   await open(page, { file: 'tests/fixtures/words.txt', cmds: ['set ft=', 'set completeopt=menuone'] });
   await input(page, 'Goalp<C-n>');
   const pum = await page.evaluate(() => {
-    const p = (window as any).__propvim;
+    const p = (window as any).__nuivim;
     const { cw, ch } = p.metrics;
     const f = [...p.state.wins.values()].find((b: any) => b.kind === 'float' && !b.hidden);
     if (!f) return null;

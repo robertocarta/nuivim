@@ -1,4 +1,4 @@
-// vim.g.propvim merged over the defaults. Pure: no DOM, no Tauri.
+// vim.g.nuivim merged over the defaults. Pure: no DOM, no Tauri.
 
 import type { OptionIsMeta } from './model/keys';
 
@@ -55,7 +55,7 @@ const CHECKS: Record<keyof Config, Check> = {
 };
 
 /**
- * Merges a raw vim.g.propvim value over the defaults. Unknown keys and values of
+ * Merges a raw vim.g.nuivim value over the defaults. Unknown keys and values of
  * the wrong type are ignored (the default stays) and produce one warning each.
  */
 export function mergeConfig(raw: unknown): { config: Config; warnings: string[] } {
@@ -64,7 +64,7 @@ export function mergeConfig(raw: unknown): { config: Config; warnings: string[] 
   // An empty Lua table arrives as an empty array.
   if (raw === null || raw === undefined || (Array.isArray(raw) && raw.length === 0)) return { config, warnings };
   if (typeof raw !== 'object' || Array.isArray(raw)) {
-    warnings.push('vim.g.propvim must be a table of options');
+    warnings.push('vim.g.nuivim must be a table of options');
     return { config, warnings };
   }
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {

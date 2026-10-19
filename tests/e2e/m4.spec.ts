@@ -28,7 +28,7 @@ test('S12: composing かな types it; a dropped path with spaces and % opens tha
 
   await input(page, '<Esc>');
   const dropped = path.join(ROOT, 'tests/fixtures/drop dir/notes 100% done.md');
-  await page.evaluate((p) => (window as any).__propvim.transport.simulateOpenFiles([p]), dropped);
+  await page.evaluate((p) => (window as any).__nuivim.transport.simulateOpenFiles([p]), dropped);
   await input(page, '');
   await expect.poll(() => call(page, 'nvim_buf_get_name', [0])).toBe(dropped);
   expect(await lua(page, 'return vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]')).toBe('dropped file');
@@ -58,7 +58,7 @@ test('window focus and blur reach Neovim as FocusGained/FocusLost', async ({ pag
 
 test('wheel deltas accumulate: one scroll step per cell height crossed', async ({ page }) => {
   await open(page, { file: 'tests/fixtures/long.txt', cmds: ['set ft=', 'set mousescroll=ver:1'] });
-  const ch = await page.evaluate(() => (window as any).__propvim.metrics.ch);
+  const ch = await page.evaluate(() => (window as any).__nuivim.metrics.ch);
   await page.mouse.move(300, 200);
   // 10 small deltas of ch/4 cross 2 cell heights (plus a remainder).
   for (let i = 0; i < 10; i++) await page.mouse.wheel(0, ch / 4);
@@ -72,16 +72,16 @@ test('performance: 95th percentile paint under 16ms while scrolling 10,000 lines
   await page.setViewportSize({ width: Math.ceil(200 * cell.w) + 2, height: 61 * cell.h });
   for (const ft of ['text', '']) {
     await open(page, { file: 'tests/fixtures/long.txt', cmds: [`set ft=${ft}`, 'set number'] });
-    const before = await page.evaluate(() => (window as any).__propvim.renderer.stats.times.length);
+    const before = await page.evaluate(() => (window as any).__nuivim.renderer.stats.times.length);
     await page.evaluate(async () => {
-      const t = (window as any).__propvim.transport;
+      const t = (window as any).__nuivim.transport;
       for (let i = 0; i < 200; i++) {
         await t.call('nvim_input', ['<C-e>']);
         await new Promise((r) => setTimeout(r, 5));
       }
     });
     await input(page, '');
-    const times: number[] = await page.evaluate((n) => (window as any).__propvim.renderer.stats.times.slice(n), before);
+    const times: number[] = await page.evaluate((n) => (window as any).__nuivim.renderer.stats.times.slice(n), before);
     expect(await lua(page, 'return vim.fn.line("w0")')).toBe(201);
     const sorted = [...times].sort((a, b) => a - b);
     const p95 = sorted[Math.floor(sorted.length * 0.95)];
@@ -93,7 +93,7 @@ test('performance: 95th percentile paint under 16ms while scrolling 10,000 lines
     expect(size[0]).toBeGreaterThanOrEqual(199);
     expect(size[1]).toBeGreaterThanOrEqual(60);
     const full = await page.evaluate(async () => {
-      const p = (window as any).__propvim;
+      const p = (window as any).__nuivim;
       p.state.markAllDirty();
       const t0 = performance.now();
       p.renderer.paint(p.state);

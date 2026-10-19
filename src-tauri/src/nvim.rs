@@ -189,7 +189,7 @@ pub async fn start(
     let state2 = state.clone();
     tokio::spawn(async move {
         if let Err(e) = nvim.exec_lua(BRIDGE, vec![Value::from(channel)]).await {
-            eprintln!("propvim: bridge failed: {e}");
+            eprintln!("nuivim: bridge failed: {e}");
         }
         let pending: Vec<String> = std::mem::take(&mut *state2.pending_files.lock().unwrap());
         state2.open_files(&app, pending);
@@ -198,14 +198,14 @@ pub async fn start(
 }
 
 fn find_nvim(env: &HashMap<String, String>) -> Result<PathBuf, StartError> {
-    if let Some(p) = env.get("PROPVIM_NVIM").filter(|p| !p.is_empty()) {
+    if let Some(p) = env.get("NUIVIM_NVIM").filter(|p| !p.is_empty()) {
         let path = PathBuf::from(p);
         if path.is_file() {
             return Ok(path);
         }
         return Err(StartError {
             kind: "not_found",
-            message: format!("PROPVIM_NVIM is set to {p}, but no file exists there. propvim needs Neovim 0.10 or newer."),
+            message: format!("NUIVIM_NVIM is set to {p}, but no file exists there. nuivim needs Neovim 0.10 or newer."),
         });
     }
     let path_var = env.get("PATH").cloned().unwrap_or_default();
@@ -217,7 +217,7 @@ fn find_nvim(env: &HashMap<String, String>) -> Result<PathBuf, StartError> {
     }
     Err(StartError {
         kind: "not_found",
-        message: format!("No nvim found on PATH ({path_var}). propvim needs Neovim 0.10 or newer, for example from `brew install neovim`."),
+        message: format!("No nvim found on PATH ({path_var}). nuivim needs Neovim 0.10 or newer, for example from `brew install neovim`."),
     })
 }
 
@@ -237,7 +237,7 @@ async fn check_version(bin: &Path, env: &HashMap<String, String>) -> Result<(), 
         _ => Err(StartError {
             kind: "too_old",
             message: format!(
-                "Found {} reporting \"{}\". propvim needs Neovim 0.10 or newer.",
+                "Found {} reporting \"{}\". nuivim needs Neovim 0.10 or newer.",
                 bin.display(),
                 if first.is_empty() { "no version" } else { &first }
             ),
@@ -343,7 +343,7 @@ mod tests {
 
     #[test]
     fn find_nvim_reports_missing_override() {
-        let env = HashMap::from([("PROPVIM_NVIM".to_string(), "/nonexistent".to_string())]);
+        let env = HashMap::from([("NUIVIM_NVIM".to_string(), "/nonexistent".to_string())]);
         let err = find_nvim(&env).unwrap_err();
         assert_eq!(err.kind, "not_found");
         assert!(err.message.contains("/nonexistent"));
@@ -351,7 +351,7 @@ mod tests {
 
     #[test]
     fn find_nvim_searches_path() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("target").join(format!("propvim-test-{}", std::process::id()));
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("target").join(format!("nuivim-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("nvim"), "").unwrap();
         let env = HashMap::from([("PATH".to_string(), format!("/nonexistent-dir:{}", dir.display()))]);

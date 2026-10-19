@@ -58,4 +58,4 @@ function serve(ws: WebSocket): void {
 
 const wss = new WebSocketServer({ host: '127.0.0.1', port });
 wss.on('connection', serve);
-console.log(`propvim harness listening on ws://127.0.0.1:${port}`);
+console.log(`nuivim harness listening on ws://127.0.0.1:${port}`);

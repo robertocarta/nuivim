@@ -15,7 +15,7 @@ export async function open(page: Page, s: Session = {}): Promise<void> {
   for (const c of s.cmds ?? []) q.append('cmd', c);
   await page.goto(`/?${q}`);
   await page.waitForFunction(() => {
-    const p = (window as any).__propvim;
+    const p = (window as any).__nuivim;
     return p && p.renderer.stats.times.length > 0 && p.state.wins.size > 0;
   });
   await settle(page);
@@ -23,7 +23,7 @@ export async function open(page: Page, s: Session = {}): Promise<void> {
 
 /** Calls a Neovim API method through the page's transport. */
 export function call<T = unknown>(page: Page, method: string, params: unknown[] = []): Promise<T> {
-  return page.evaluate(([m, p]) => (window as any).__propvim.transport.call(m, p), [method, params] as const) as Promise<T>;
+  return page.evaluate(([m, p]) => (window as any).__nuivim.transport.call(m, p), [method, params] as const) as Promise<T>;
 }
 
 export function lua<T = unknown>(page: Page, code: string, args: unknown[] = []): Promise<T> {
@@ -55,7 +55,7 @@ export { expect };
 export function domRowText(page: Page, grid: number, row: number): Promise<string> {
   return page.evaluate(
     ([grid, row]) => {
-      const p = (window as any).__propvim;
+      const p = (window as any).__nuivim;
       const cw: number = p.metrics.cw;
       const g = p.state.grids.get(grid);
       const rowObj = g.rows[row];
@@ -95,7 +95,7 @@ export function screenRowText(page: Page, row: number, col = 0, width?: number):
 export function proseCharBox(page: Page, grid: number, row: number, col: number): Promise<{ left: number; width: number; top: number; height: number }> {
   return page.evaluate(
     ([grid, row, col]) => {
-      const p = (window as any).__propvim;
+      const p = (window as any).__nuivim;
       const view = p.renderer.views.get(grid);
       const cells: string[] = p.state.grids.get(grid).rows[row].text;
       const rowKey = p.state.grids.get(grid).rows[row].key;
@@ -129,7 +129,7 @@ export function proseCharBox(page: Page, grid: number, row: number, col: number)
 /** The window grid whose buffer is the current one. */
 export function currentWinGrid(page: Page): Promise<number> {
   return page.evaluate(async () => {
-    const p = (window as any).__propvim;
+    const p = (window as any).__nuivim;
     const win = await p.transport.call('nvim_get_current_win', []);
     return [...p.state.wins.values()].find((b: any) => b.win === win && b.kind === 'win').grid;
   });

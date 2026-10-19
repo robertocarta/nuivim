@@ -8,7 +8,7 @@ test('S5: Markdown with number and signcolumn=yes: prose text area, mono gutter 
   await open(page, { file: MD, cmds: ['set number signcolumn=yes'] });
   const grid = await currentWinGrid(page);
   const info = await page.evaluate((grid) => {
-    const p = (window as any).__propvim;
+    const p = (window as any).__nuivim;
     const cw: number = p.metrics.cw;
     const view = p.renderer.views.get(grid);
     const gridEl = document.querySelector<HTMLElement>(`.grid[data-grid="${grid}"]`)!;
@@ -45,7 +45,7 @@ test('S6: the cursor follows mixed-width letters on a prose line', async ({ page
   await open(page, { file: MD, cmds: ['set number'] });
   await input(page, '4G0');
   const grid = await currentWinGrid(page);
-  const textoff = await page.evaluate((g) => (window as any).__propvim.renderer.views.get(g).textoff, grid);
+  const textoff = await page.evaluate((g) => (window as any).__nuivim.renderer.views.get(g).textoff, grid);
   const word = 'iiiWWWmmm';
   for (let i = 0; i < word.length; i++) {
     const cur = await cursorBox(page);
@@ -60,7 +60,7 @@ test('S6: the cursor follows mixed-width letters on a prose line', async ({ page
 test('S7: clicking the middle of the 5th character puts the cursor on column 4', async ({ page }) => {
   await open(page, { file: MD, cmds: ['set number'] });
   const grid = await currentWinGrid(page);
-  const textoff = await page.evaluate((g) => (window as any).__propvim.renderer.views.get(g).textoff, grid);
+  const textoff = await page.evaluate((g) => (window as any).__nuivim.renderer.views.get(g).textoff, grid);
   const box = await proseCharBox(page, grid, 2, textoff + 4);
   const origin = await page.evaluate((g) => {
     const r = document.querySelector<HTMLElement>(`.grid[data-grid="${g}"]`)!.getBoundingClientRect();
@@ -87,10 +87,10 @@ test('indentation and list markers keep cell widths in prose rows', async ({ pag
   );
   await input(page, 'G');
   const grid = await currentWinGrid(page);
-  const cw = await page.evaluate(() => (window as any).__propvim.metrics.cw);
+  const cw = await page.evaluate(() => (window as any).__nuivim.metrics.cw);
   const rowOf = (text: string) =>
     page.evaluate(
-      ([g, text]) => (window as any).__propvim.state.grids.get(g).rows.findIndex((r: any) => r.text.join('').includes(text)),
+      ([g, text]) => (window as any).__nuivim.state.grids.get(g).rows.findIndex((r: any) => r.text.join('').includes(text)),
       [grid, text] as const,
     );
   const itemRow = await rowOf('- an item');
@@ -111,13 +111,13 @@ test('indentation and list markers keep cell widths in prose rows', async ({ pag
 for (const overflow of ['shrink', 'clip'] as const) {
   test(`S8: 200 W characters in a narrow window (${overflow})`, async ({ page }) => {
     await open(page, { file: MD });
-    await lua(page, `vim.g.propvim = { overflow = '${overflow}' }`);
-    await input(page, ':PropvimReload<CR>:30vsplit<CR>:enew<CR>:set ft=markdown<CR>');
+    await lua(page, `vim.g.nuivim = { overflow = '${overflow}' }`);
+    await input(page, ':NuivimReload<CR>:30vsplit<CR>:enew<CR>:set ft=markdown<CR>');
     await lua(page, `vim.api.nvim_buf_set_lines(0, 0, -1, false, { string.rep('W', 200) })`);
     await input(page, '');
     const grid = await currentWinGrid(page);
     const r = await page.evaluate((grid) => {
-      const p = (window as any).__propvim;
+      const p = (window as any).__nuivim;
       const gridEl = document.querySelector<HTMLElement>(`.grid[data-grid="${grid}"]`)!;
       const win = gridEl.getBoundingClientRect();
       const rows = [...gridEl.querySelectorAll<HTMLElement>('.row')].filter((r) => r.querySelector('.pc')?.textContent?.includes('W'));

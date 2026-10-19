@@ -17,7 +17,7 @@ export default defineConfig({
   projects: [{ name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1000, height: 700 }, deviceScaleFactor: 2 } }],
   webServer: [
     {
-      command: `PROPVIM_VITE_PORT=${VITE_PORT} npx vite`,
+      command: `NUIVIM_VITE_PORT=${VITE_PORT} npx vite`,
       url: `http://127.0.0.1:${VITE_PORT}`,
       reuseExistingServer: false,
     },

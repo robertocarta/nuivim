@@ -43,7 +43,7 @@ function boxCss(): string {
 }
 
 const sheet = document.createElement('style');
-sheet.id = 'propvim-hl';
+sheet.id = 'nuivim-hl';
 document.head.appendChild(sheet);
 
 /**

@@ -67,10 +67,10 @@ fn frontend_log(message: String) {
 
 fn menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     // No Edit menu: Cmd-C/V/A and friends must reach Neovim as <D-…> keys.
-    let quit = MenuItem::with_id(app, "quit", "Quit propvim", true, Some("CmdOrCtrl+Q"))?;
+    let quit = MenuItem::with_id(app, "quit", "Quit NuiVim", true, Some("CmdOrCtrl+Q"))?;
     let app_menu = Submenu::with_items(
         app,
-        "propvim",
+        "NuiVim",
         true,
         &[
             &PredefinedMenuItem::hide(app, None)?,
@@ -120,7 +120,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![nvim_start, nvim_input, nvim_input_mouse, nvim_call, frontend_log])
         .build(tauri::generate_context!())
-        .expect("error while building propvim");
+        .expect("error while building nuivim");
 
     app.run(move |app, event| {
         #[cfg(target_os = "macos")]

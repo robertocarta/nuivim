@@ -32,7 +32,7 @@ export class NvimRpc {
     const args = ['--embed', '--clean', '-u', path.join(ROOT, 'tests/fixtures/init.lua')];
     for (const c of opts.cmds ?? []) args.push('-c', c);
     if (opts.file) args.push('--', path.resolve(ROOT, opts.file));
-    this.proc = spawn(opts.nvim ?? process.env.PROPVIM_NVIM ?? 'nvim', args, { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] });
+    this.proc = spawn(opts.nvim ?? process.env.NUIVIM_NVIM ?? 'nvim', args, { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] });
     this.proc.stderr!.on('data', (d: Buffer) => {
       this.stderr.push(...d.toString().split('\n'));
       this.stderr = this.stderr.slice(-50);

@@ -6,7 +6,7 @@ use std::io::Read;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-const MARKER: &str = "__PROPVIM_ENV__";
+const MARKER: &str = "__NUIVIM_ENV__";
 const TIMEOUT: Duration = Duration::from_secs(5);
 
 /// The login shell's environment, or the app's own environment if the shell
@@ -74,7 +74,7 @@ mod tests {
 
     #[test]
     fn parses_nul_separated_entries() {
-        let env = parse("__PROPVIM_ENV__PATH=/usr/bin:/opt/homebrew/bin\0HOME=/Users/a\0");
+        let env = parse("__NUIVIM_ENV__PATH=/usr/bin:/opt/homebrew/bin\0HOME=/Users/a\0");
         assert_eq!(env["PATH"], "/usr/bin:/opt/homebrew/bin");
         assert_eq!(env["HOME"], "/Users/a");
         assert_eq!(env.len(), 2);
@@ -82,21 +82,21 @@ mod tests {
 
     #[test]
     fn ignores_profile_noise_before_marker() {
-        let env = parse("Welcome!\nFOO=bar\n__PROPVIM_ENV__A=1\0");
+        let env = parse("Welcome!\nFOO=bar\n__NUIVIM_ENV__A=1\0");
         assert_eq!(env.len(), 1);
         assert_eq!(env["A"], "1");
     }
 
     #[test]
     fn keeps_newlines_and_equals_in_values() {
-        let env = parse("__PROPVIM_ENV__X=a=b\nc\0Y=\0");
+        let env = parse("__NUIVIM_ENV__X=a=b\nc\0Y=\0");
         assert_eq!(env["X"], "a=b\nc");
         assert_eq!(env["Y"], "");
     }
 
     #[test]
     fn skips_malformed_entries() {
-        let env = parse("__PROPVIM_ENV__novalue\0=x\0OK=1\0");
+        let env = parse("__NUIVIM_ENV__novalue\0=x\0OK=1\0");
         assert_eq!(env.len(), 1);
         assert_eq!(env["OK"], "1");
     }

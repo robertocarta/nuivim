@@ -117,7 +117,7 @@ export class UiState {
       if (!handler) {
         if (!this.unknownLogged.has(name)) {
           this.unknownLogged.add(name);
-          this.log(`propvim: ignoring redraw event ${name}`);
+          this.log(`nuivim: ignoring redraw event ${name}`);
         }
         continue;
       }
@@ -127,7 +127,7 @@ export class UiState {
         try {
           handler(this, args);
         } catch (e) {
-          this.log(`propvim: bad ${name} event: ${String(e)}`);
+          this.log(`nuivim: bad ${name} event: ${String(e)}`);
         }
       }
     }

@@ -34,7 +34,7 @@ type Listeners = {
 
 const newListeners = (): Listeners => ({ redraw: [], notify: [], exit: [], openFiles: [] });
 
-const logError = (what: string) => (e: unknown) => console.error(`propvim: ${what} failed`, e);
+const logError = (what: string) => (e: unknown) => console.error(`nuivim: ${what} failed`, e);
 
 class TauriTransport implements Transport {
   private l = newListeners();

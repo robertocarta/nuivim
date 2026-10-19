@@ -1,18 +1,18 @@
--- propvim bridge: run once with nvim_exec_lua right after the UI attaches.
+-- nuivim bridge: run once with nvim_exec_lua right after the UI attaches.
 -- Sends notifications back to the UI on the given channel; changes nothing
 -- in the user's config except mapping <D-c>, <D-v> and <D-a> where unmapped.
 local chan = ...
 
--- Lets the user's config tell a propvim session apart (read at draw time, e.g. by
+-- Lets the user's config tell a nuivim session apart (read at draw time, e.g. by
 -- decoration providers; it is set after startup, so not visible in init.lua).
-vim.g.propvim_ui = 1
+vim.g.nuivim_ui = 1
 
 local function send(kind, payload)
-  pcall(vim.rpcnotify, chan, 'propvim', kind, payload)
+  pcall(vim.rpcnotify, chan, 'nuivim', kind, payload)
 end
 
 local function send_config()
-  local cfg = vim.g.propvim
+  local cfg = vim.g.nuivim
   if cfg == nil then
     cfg = vim.empty_dict()
   end
@@ -32,12 +32,12 @@ local function paste_clipboard()
 end
 
 local function setup_maps()
-  map_unmapped({ 'x' }, '<D-c>', '"+y', 'propvim: copy')
-  map_unmapped({ 'n', 'i', 'c' }, '<D-v>', paste_clipboard, 'propvim: paste')
-  map_unmapped({ 'n' }, '<D-a>', 'ggVG', 'propvim: select all')
+  map_unmapped({ 'x' }, '<D-c>', '"+y', 'nuivim: copy')
+  map_unmapped({ 'n', 'i', 'c' }, '<D-v>', paste_clipboard, 'nuivim: paste')
+  map_unmapped({ 'n' }, '<D-a>', 'ggVG', 'nuivim: select all')
 end
 
-local group = vim.api.nvim_create_augroup('propvim', { clear = true })
+local group = vim.api.nvim_create_augroup('nuivim', { clear = true })
 
 vim.api.nvim_create_autocmd({ 'FileType', 'BufWinEnter' }, {
   group = group,
@@ -54,7 +54,7 @@ vim.api.nvim_create_autocmd('OptionSet', {
   end,
 })
 
-vim.api.nvim_create_user_command('PropvimReload', send_config, { desc = 'propvim: re-read vim.g.propvim' })
+vim.api.nvim_create_user_command('NuivimReload', send_config, { desc = 'nuivim: re-read vim.g.nuivim' })
 
 send_config()
 

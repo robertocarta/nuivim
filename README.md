@@ -1,4 +1,4 @@
-# propvim
+# NuiVim
 
 A small macOS app that runs Neovim and sets prose in a proportional font, while
 every floating window (completion menus, LSP hovers, Telescope and other plugin
@@ -6,10 +6,12 @@ popups) keeps its exact monospace layout.
 
 It works with your normal Neovim config, or none at all, and never changes it.
 
+![A Markdown note in NuiVim: text in Charter, line numbers and the completion menu in monospace, the menu under the word being completed](docs/screenshot.png)
+
 ## How it works
 
 Neovim's UI protocol (`ext_multigrid`) sends every window and every float as its
-own grid of cells. propvim lays out all grids on an imaginary monospace cell
+own grid of cells. NuiVim lays out all grids on an imaginary monospace cell
 grid, so windows and floats land where Neovim and plugins expect them, and then
 draws only the text area of prose windows in a proportional font inside its
 window box. Line numbers, signs, statuslines, the command line and all floats
@@ -19,7 +21,7 @@ moved to where that text actually is.
 ## Install
 
 You need macOS 11 or newer and **Neovim 0.10 or newer** (`brew install neovim`).
-propvim finds `nvim` on the `PATH` of your login shell; set `PROPVIM_NVIM` to
+NuiVim finds `nvim` on the `PATH` of your login shell; set `NUIVIM_NVIM` to
 use another binary.
 
 Build from source (Rust, Node 20 and the Xcode command line tools):
@@ -42,18 +44,18 @@ RUSTUP_HOME=$PWD/.toolchain/rustup CARGO_HOME=$PWD/.toolchain/cargo \
 
 The bundles land in `src-tauri/target/.../release/bundle/`. The app is not
 signed: the first time, right-click it in Finder and choose **Open**, or run
-`xattr -dr com.apple.quarantine propvim.app`.
+`xattr -dr com.apple.quarantine NuiVim.app`.
 
 Open files by dropping them on the window, with **Open With** in Finder, or
-from a terminal: `open -a propvim notes.md`.
+from a terminal: `open -a NuiVim notes.md`.
 
 ## Configuration
 
-Configure propvim from your Neovim config with one global table. It is harmless
+Configure NuiVim from your Neovim config with one global table. It is harmless
 in a terminal Neovim, so one `init.lua` works everywhere:
 
 ```lua
-vim.g.propvim = {
+vim.g.nuivim = {
   prose_font = "Charter",          -- CSS font family: any installed font
   prose_size = 17,                 -- points
   mono_font = "JetBrains Mono",    -- overrides 'guifont' when set
@@ -62,7 +64,7 @@ vim.g.propvim = {
   mono_hl_groups = { "@markup.raw", "markdownCode", "texMathZone" },
   overflow = "shrink",             -- or "clip"
   option_is_meta = "none",         -- "none" | "left" | "right" | "both"
-  linespace = 6,                   -- extra pixels between rows, propvim only
+  linespace = 6,                   -- extra pixels between rows, nuivim only
 }
 ```
 
@@ -78,9 +80,9 @@ vim.g.propvim = {
 | `option_is_meta` | `"none"`, `"left"`, `"right"`, `"both"` | none |
 | `linespace` | whole pixels, 0–100 | Neovim's `'linespace'` option (0) |
 
-- Change the table and run `:PropvimReload` to apply it without restarting.
+- Change the table and run `:NuivimReload` to apply it without restarting.
 - An unknown key or a wrong value is ignored (the default stays) and shows one
-  warning, e.g. `propvim: overflow must be "shrink" or "clip"`.
+  warning, e.g. `nuivim: overflow must be "shrink" or "clip"`.
 - `prose_filetypes`: windows showing these filetypes (and not terminals) get
   proportional text. So do floating windows that show a file with one of these
   filetypes, such as a zen or reading page; popups (LSP hover, completion docs,
@@ -97,18 +99,18 @@ vim.g.propvim = {
   window, which is rare: `shrink` narrows that line to fit, `clip` cuts it off.
 - `linespace`: extra pixels between rows, for every row (prose and mono alike).
   Unlike Neovim's `'linespace'` option, which other GUIs such as Neovide also
-  read, it only affects propvim.
+  read, it only affects NuiVim.
 - `option_is_meta`: which Option key sends `<M-…>`. Otherwise Option types its
   character as usual (`å`, `…`).
 
-### Telling a propvim session apart
+### Telling a NuiVim session apart
 
-Inside propvim, `vim.g.propvim_ui` is `1`. It is set right after startup, so
+Inside NuiVim, `vim.g.nuivim_ui` is `1`. It is set right after startup, so
 `init.lua` cannot see it yet, but anything evaluated later can (decoration
 providers, autocmds after `VimEnter`, keymaps):
 
 ```lua
-if vim.g.propvim_ui then ... end
+if vim.g.nuivim_ui then ... end
 ```
 
 ### Wrapping prose
@@ -129,7 +131,7 @@ vim.api.nvim_create_autocmd("FileType", {
   (both fonts, this session only).
 - **Cmd-Q** and the close button run `:confirm qa`. **Cmd-H** hides, **Cmd-M**
   minimises.
-- Every other Cmd combination reaches Neovim as `<D-…>`. propvim maps
+- Every other Cmd combination reaches Neovim as `<D-…>`. NuiVim maps
   **Cmd-C** (copy in visual mode), **Cmd-V** (paste in normal, insert and
   command-line mode) and **Cmd-A** (select all), but only where you have not
   mapped those keys yourself.

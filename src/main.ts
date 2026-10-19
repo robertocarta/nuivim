@@ -105,7 +105,7 @@ async function main(): Promise<void> {
     renderer.paint(state);
     if (state.title !== lastTitle) {
       lastTitle = state.title;
-      transport.setTitle(state.title || 'propvim');
+      transport.setTitle(state.title || 'NuiVim');
     }
     placeInput();
   };
@@ -134,14 +134,14 @@ async function main(): Promise<void> {
         }
         if (changed) paint();
       })
-      .catch((e) => console.error('propvim: window info query failed', e));
+      .catch((e) => console.error('nuivim: window info query failed', e));
   };
 
   const applyConfig = (raw: unknown) => {
     const merged = mergeConfig(raw);
     config = merged.config;
     for (const w of merged.warnings) {
-      transport.call('nvim_echo', [[[`propvim: ${w}`, 'WarningMsg']], true, {}]).catch(() => {});
+      transport.call('nvim_echo', [[[`nuivim: ${w}`, 'WarningMsg']], true, {}]).catch(() => {});
     }
     refreshFonts(true);
     paint();
@@ -151,7 +151,7 @@ async function main(): Promise<void> {
   transport.onRedraw((batch) => {
     if (!loggedResize && batch.some((ev) => Array.isArray(ev) && ev[0] === 'grid_resize' && ev.slice(1).some((a) => Array.isArray(a) && a[0] === 1))) {
       loggedResize = true;
-      console.info('propvim: grid_resize for grid 1');
+      console.info('nuivim: grid_resize for grid 1');
     }
     if (!state.apply(batch)) return;
     if (state.fontsDirty) {
@@ -163,7 +163,7 @@ async function main(): Promise<void> {
   });
 
   transport.onNotify((method, args) => {
-    if (method !== 'propvim' || !Array.isArray(args)) return;
+    if (method !== 'nuivim' || !Array.isArray(args)) return;
     if (args[0] === 'config') applyConfig(args[1]);
     else if (args[0] === 'wininfo') {
       state.queueAllWinQueries();
@@ -225,7 +225,7 @@ async function main(): Promise<void> {
 
   // Exposed for tests and debugging.
   Object.assign(window, {
-    __propvim: {
+    __nuivim: {
       state,
       renderer,
       transport,
@@ -248,9 +248,9 @@ async function main(): Promise<void> {
     resizeNow();
   } catch (e) {
     const err = e as StartError;
-    console.error(`propvim: start failed: ${err?.message ?? String(e)}`);
-    showPage('propvim could not start Neovim', err?.message ?? String(e));
+    console.error(`nuivim: start failed: ${err?.message ?? String(e)}`);
+    showPage('NuiVim could not start Neovim', err?.message ?? String(e));
   }
 }
 
-main().catch((e) => showPage('propvim failed to start', String(e)));
+main().catch((e) => showPage('NuiVim failed to start', String(e)));

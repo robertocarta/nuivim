@@ -69,7 +69,7 @@ describe('mergeConfig', () => {
   });
 
   it('rejects a non-table value', () => {
-    expect(mergeConfig('x').warnings).toEqual(['vim.g.propvim must be a table of options']);
+    expect(mergeConfig('x').warnings).toEqual(['vim.g.nuivim must be a table of options']);
   });
 
   it('does not share default lists between results', () => {

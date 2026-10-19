@@ -86,7 +86,9 @@ async function record(r: Recording): Promise<void> {
   await r.steps(n);
   await sleep(300);
   n.kill();
-  writeFileSync(path.join(ROOT, 'tests/fixtures', `${r.name}.json`), JSON.stringify(batches) + '\n');
+  // Recordings are committed: keep the local checkout path out of them.
+  const json = JSON.stringify(batches).split(JSON.stringify(ROOT).slice(1, -1)).join('/home/user/nuivim');
+  writeFileSync(path.join(ROOT, 'tests/fixtures', `${r.name}.json`), json + '\n');
   console.log(`${r.name}: ${batches.length} batches`);
 }
 

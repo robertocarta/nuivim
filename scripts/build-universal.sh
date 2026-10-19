@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds a universal (arm64 + x86_64) propvim.app and .dmg.
+# Builds a universal (arm64 + x86_64) NuiVim.app and .dmg.
 # Uses the project-local toolchain in .toolchain/ when present (see README);
 # otherwise the rustup toolchain on PATH, which needs both targets:
 #   rustup target add aarch64-apple-darwin x86_64-apple-darwin

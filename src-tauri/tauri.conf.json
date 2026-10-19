@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "propvim",
+  "productName": "NuiVim",
   "version": "0.1.0",
-  "identifier": "app.propvim",
+  "identifier": "app.nuivim",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "propvim",
+        "title": "NuiVim",
         "width": 1000,
         "height": 720,
         "minWidth": 320,
