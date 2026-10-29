@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { escapeText, keyToNvim, optionIsMetaFor, type KeyLike } from '../../src/model/keys';
+import { escapeText, isMenuShortcut, keyToNvim, optionIsMetaFor, type KeyLike } from '../../src/model/keys';
 
 const k = (key: string, mods: Partial<KeyLike> = {}, code = ''): KeyLike => ({
   key,
@@ -67,6 +67,24 @@ describe('keyToNvim', () => {
     expect(keyToNvim(k('Å', { altKey: true, shiftKey: true }, 'KeyA'), true)).toBe('<M-A>');
     expect(keyToNvim(k('¡', { altKey: true }, 'Digit1'), true)).toBe('<M-1>');
     expect(keyToNvim(k('ƒ', { altKey: true, ctrlKey: true }, 'KeyF'), true)).toBe('<C-M-f>');
+  });
+});
+
+describe('isMenuShortcut', () => {
+  it('leaves menu shortcuts to the menu bar', () => {
+    for (const key of ['q', 'h', 'm', 't', 'w', ',', 'Q']) expect(isMenuShortcut(k(key, { metaKey: true }))).toBe(true);
+    expect(isMenuShortcut(k('˙', { metaKey: true, altKey: true }, 'KeyH'))).toBe(true);
+    expect(isMenuShortcut(k('f', { metaKey: true, ctrlKey: true }, 'KeyF'))).toBe(true);
+    expect(isMenuShortcut(k('}', { metaKey: true, shiftKey: true }, 'BracketRight'))).toBe(true);
+    expect(isMenuShortcut(k('{', { metaKey: true, shiftKey: true }, 'BracketLeft'))).toBe(true);
+  });
+  it('keeps everything else for Neovim or the app', () => {
+    expect(isMenuShortcut(k('q'))).toBe(false);
+    expect(isMenuShortcut(k('q', { ctrlKey: true }))).toBe(false);
+    expect(isMenuShortcut(k('s', { metaKey: true }))).toBe(false);
+    expect(isMenuShortcut(k('c', { metaKey: true }))).toBe(false);
+    expect(isMenuShortcut(k(']', { metaKey: true }, 'BracketRight'))).toBe(false);
+    expect(isMenuShortcut(k('w', { metaKey: true, shiftKey: true }, 'KeyW'))).toBe(false);
   });
 });
 

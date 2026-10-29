@@ -128,3 +128,7 @@ Choices the build spec left open, and departures from it. Newest last.
 
 ## 2026-10-29 — Settings fields show the values in use
 **Decision:** Every appearance field is filled with the value in use, not left empty with a "default" note: the defaults, the mono font and size from the active tab's `'guifont'` (else Menlo 14) and the spacing from its `'linespace'`; fields set by `vim.g.nuivim` show that value, disabled. On save only values that differ from those defaults are stored, so a later change of default (or of `'guifont'`) still applies to untouched fields. Clearing a field also returns it to the default.
+
+## 2026-10-29 — Menu shortcuts must not be handled by the page
+**Finding:** Cmd-Q, Cmd-T, Cmd-W, Cmd-, and Cmd-Shift-[ / ] did nothing in the app. The keyboard handler called `preventDefault()` on them (to keep them from Neovim), and WebKit then reports the key as handled, so macOS never offers it to the menu bar (wry uses WKWebView's own `performKeyEquivalent:` for the main web view).
+**Decision:** `isMenuShortcut()` (src/model/keys.ts) lists the menu bar's shortcuts; the keyboard handler ignores them entirely, without `preventDefault()`, so the menu receives them. Cmd-] and Cmd-[ (without Shift) also switch tabs, handled by the page.

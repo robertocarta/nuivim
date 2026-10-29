@@ -35,6 +35,20 @@ for (let i = 1; i <= 12; i++) SPECIAL[`F${i}`] = `F${i}`;
 /** Characters that need a name inside <...>. */
 const NAMED: Record<string, string> = { '<': 'lt', '\\': 'Bslash', '|': 'Bar', ' ': 'Space' };
 
+/**
+ * Shortcuts of the app's menu bar (Quit, Hide, Minimise, New/Close Tab, Settings,
+ * Hide Others, Full Screen, Next/Previous Tab). The keyboard handler must leave
+ * them alone: on macOS a keydown the page handles never reaches the menu.
+ */
+export function isMenuShortcut(e: KeyLike): boolean {
+  if (!e.metaKey) return false;
+  if (!e.ctrlKey && !e.altKey && !e.shiftKey) return ['q', 'h', 'm', 't', 'w', ','].includes(e.key.toLowerCase());
+  if (e.altKey && !e.ctrlKey && !e.shiftKey) return e.code === 'KeyH';
+  if (e.ctrlKey && !e.altKey && !e.shiftKey) return e.code === 'KeyF';
+  if (e.shiftKey && !e.ctrlKey && !e.altKey) return e.code === 'BracketLeft' || e.code === 'BracketRight';
+  return false;
+}
+
 /** Escapes typed text for nvim_input: only '<' is special. */
 export function escapeText(text: string): string {
   return text.replace(/</g, '<lt>');

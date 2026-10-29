@@ -43,6 +43,38 @@ test('tabs: each has its own Neovim; the tab bar hides with one tab; ⌘1/⌘2 s
   expect(await lua<number>(page, 'return vim.fn.getpid()')).toBe(pid1);
 });
 
+test('menu shortcuts reach the menu; Cmd-] and Cmd-[ switch tabs', async ({ page }) => {
+  await open(page, { file: 'tests/fixtures/prose.md' });
+  await menu(page, 'new-tab');
+  await waitTabs(page, 2);
+  const [first, second] = (await tabs(page)).ids;
+  // A keydown the page prevents never reaches the macOS menu: menu shortcuts must not be prevented.
+  const prevented = await page.evaluate(() => {
+    const ta = document.getElementById('input')!;
+    const press = (init: KeyboardEventInit) => {
+      const e = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, metaKey: true, ...init });
+      ta.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    return {
+      quit: press({ key: 'q', code: 'KeyQ' }),
+      newTab: press({ key: 't', code: 'KeyT' }),
+      closeTab: press({ key: 'w', code: 'KeyW' }),
+      settings: press({ key: ',', code: 'Comma' }),
+      nextTabMenu: press({ key: '}', code: 'BracketRight', shiftKey: true }),
+      save: press({ key: 's', code: 'KeyS' }),
+    };
+  });
+  expect(prevented).toEqual({ quit: false, newTab: false, closeTab: false, settings: false, nextTabMenu: false, save: true });
+  // Nothing of those reached Neovim, and no tab changed.
+  expect((await tabs(page)).ids).toEqual([first, second]);
+
+  await page.keyboard.press('Meta+BracketRight');
+  expect((await tabs(page)).active).toBe(first);
+  await page.keyboard.press('Meta+BracketLeft');
+  expect((await tabs(page)).active).toBe(second);
+});
+
 test('tab bar stays visible with one tab when autohide is off; clicks select and close tabs', async ({ page }) => {
   await open(page, { settings: { autohide_tabs: false } });
   expect(await tabBarVisible(page)).toBe(true);

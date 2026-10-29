@@ -1,12 +1,12 @@
 // Keyboard and IME input through a hidden textarea kept at the cursor, so every
 // layout, dead key and input method works without guessing from key codes.
 
-import { escapeText, keyToNvim, optionIsMetaFor, type OptionIsMeta } from '../model/keys';
+import { escapeText, isMenuShortcut, keyToNvim, optionIsMetaFor, type OptionIsMeta } from '../model/keys';
 
 export interface KeyboardHooks {
   send(keys: string): void;
   optionIsMeta(): OptionIsMeta;
-  /** Keys the app keeps for itself (font size). Returns true when handled. */
+  /** Keys the app keeps for itself (font size, tabs). Returns true when handled. */
   appKey(e: KeyboardEvent): boolean;
   /** Uncommitted IME text, or null when composition ends. */
   compose(text: string | null): void;
@@ -20,6 +20,8 @@ export function attachKeyboard(ta: HTMLTextAreaElement, hooks: KeyboardHooks): v
     if (e.code === 'AltLeft') alt.left = true;
     if (e.code === 'AltRight') alt.right = true;
     if (composing || e.isComposing) return;
+    // Left to the menu bar: preventing the default here would keep it from the menu.
+    if (isMenuShortcut(e)) return;
     if (hooks.appKey(e)) {
       e.preventDefault();
       return;

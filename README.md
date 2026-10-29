@@ -75,7 +75,7 @@ Each tab is its own Neovim, with its own working directory, buffers and
 | **Cmd-T** | new tab: Neovim's start screen in the working directory from Settings |
 | **Cmd-W** | close tab (`:confirm qa` in that tab, so unsaved changes are asked about) |
 | **Cmd-1** … **Cmd-8**, **Cmd-9** | go to tab 1–8, the last tab |
-| **Cmd-Shift-]**, **Cmd-Shift-[** | next, previous tab |
+| **Cmd-]**, **Cmd-[** (or with Shift) | next, previous tab |
 
 The tab bar hides itself while only one tab is open; turn that off in Settings.
 A tab's title is the name of the file in its current window.

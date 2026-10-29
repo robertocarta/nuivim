@@ -240,7 +240,7 @@ class App {
     });
   }
 
-  /** Cmd keys the app keeps: font size and tab selection (the rest are menu items). */
+  /** Cmd keys the app keeps: font size and tabs (menu shortcuts never get here). */
   private appKey(e: KeyboardEvent): boolean {
     if (!e.metaKey || e.ctrlKey || e.altKey) return false;
     if (/^[1-9]$/.test(e.key) && !e.shiftKey) {
@@ -248,10 +248,17 @@ class App {
       this.activate(this.tabs.active);
       return true;
     }
+    // Cmd-] / Cmd-[: next / previous tab (Cmd-Shift-] / [ go through the menu).
+    const bracket = e.key === ']' || e.code === 'BracketRight' ? 1 : e.key === '[' || e.code === 'BracketLeft' ? -1 : 0;
+    if (bracket && !e.shiftKey) {
+      this.tabs.cycle(bracket);
+      this.activate(this.tabs.active);
+      return true;
+    }
     if (e.key === '=' || e.key === '+') this.sizeDelta++;
     else if (e.key === '-') this.sizeDelta--;
     else if (e.key === '0') this.sizeDelta = 0;
-    else return ['q', 'h', 'm', 't', 'w', ','].includes(e.key.toLowerCase()); // handled by the menu
+    else return false;
     for (const s of this.sessions.values()) s.refreshFonts();
     this.active?.paint();
     return true;
