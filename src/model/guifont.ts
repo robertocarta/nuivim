@@ -7,14 +7,21 @@ export interface GuiFont {
   size?: number;
 }
 
+/** The font names in 'guifont', unescaped ("JetBrains_Mono,Menlo:h14" -> ["JetBrains Mono", "Menlo"]). */
+export function guifontNames(value: unknown): string[] {
+  if (typeof value !== 'string') return [];
+  return value
+    .split(/(?<!\\):/)[0]
+    .split(/(?<!\\),/)
+    .map((n) => n.replace(/\\(.)/g, '$1').replace(/_/g, ' ').trim())
+    .filter((n) => n && n !== '*');
+}
+
 export function parseGuifont(value: unknown): GuiFont {
   if (typeof value !== 'string' || value.trim() === '') return {};
   // Split on ':' not preceded by a backslash.
   const parts = value.split(/(?<!\\):/);
-  const names = parts[0]
-    .split(/(?<!\\),/)
-    .map((n) => n.replace(/\\(.)/g, '$1').replace(/_/g, ' ').trim())
-    .filter((n) => n && n !== '*');
+  const names = guifontNames(value);
   let size: number | undefined;
   for (const opt of parts.slice(1)) {
     const m = /^h(\d+(?:\.\d+)?)$/.exec(opt.trim());

@@ -5,7 +5,7 @@ import { DEFAULTS, type Config } from './config';
 import { attachKeyboard } from './input/keyboard';
 import { Tabs } from './model/tabs';
 import { Session } from './session';
-import { parseSettings, tabStart, type AppSettings } from './settings';
+import { appearanceDefaults, parseSettings, tabStart, type AppSettings } from './settings';
 import { createTransport, type OpenRequest, type Transport } from './transport';
 import { openSettingsPanel } from './view/settings-panel';
 import { cssVars } from './view/styles';
@@ -49,8 +49,8 @@ class App {
   }
 
   /** Opens a tab: for a request (shell command, Finder, launch) or a plain new tab. */
-  async newTab(req: OpenRequest | null): Promise<Session> {
-    const { cwd, files } = tabStart(req, this.settings);
+  async newTab(req: OpenRequest | null, withHomepage = false): Promise<Session> {
+    const { cwd, files } = tabStart(req, this.settings, withHomepage);
     const tab = this.tabs.add();
     const session = new Session(tab.id, this.transport, {
       appearance: () => this.settings.appearance,
@@ -151,9 +151,13 @@ class App {
   openSettings(): void {
     if (this.settingsOpen) return;
     this.settingsOpen = true;
+    const s = this.active;
+    const defaults = appearanceDefaults(s?.state.options.guifont ?? '', s?.state.options.linespace ?? 0);
     openSettingsPanel(document.body, {
       settings: this.settings,
-      overridden: this.active?.overridden ?? [],
+      defaults,
+      effective: s?.config ?? defaults,
+      overridden: s?.overridden ?? [],
       save: async (next) => {
         try {
           await this.transport.saveSettings(next);
@@ -287,7 +291,7 @@ async function main(): Promise<void> {
   });
 
   const requests = await transport.launchRequests();
-  if (!requests.length) await app.newTab(null);
+  if (!requests.length) await app.newTab(null, true);
   for (const req of requests) await app.newTab(req);
 }
 

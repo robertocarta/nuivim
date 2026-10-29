@@ -72,7 +72,7 @@ Each tab is its own Neovim, with its own working directory, buffers and
 
 | Key | |
 | --- | --- |
-| **Cmd-T** | new tab (working directory and homepage from Settings) |
+| **Cmd-T** | new tab: Neovim's start screen in the working directory from Settings |
 | **Cmd-W** | close tab (`:confirm qa` in that tab, so unsaved changes are asked about) |
 | **Cmd-1** … **Cmd-8**, **Cmd-9** | go to tab 1–8, the last tab |
 | **Cmd-Shift-]**, **Cmd-Shift-[** | next, previous tab |
@@ -86,12 +86,16 @@ A tab's title is the name of the file in its current window.
 
 - **Working directory**: where new tabs start (default: your home folder). Tabs
   opened with the `nuivim` command start where it was run instead.
-- **Homepage file**: opened in every new tab that has nothing else to open,
-  e.g. `~/notes/index.md` or a path relative to the working directory.
+- **Homepage file**: opened in the first tab when NuiVim starts with nothing
+  else to open, e.g. `~/notes/index.md` or a path relative to the working
+  directory. Later tabs start empty, so two Neovims never hold the same file
+  (and its swap file).
 - **Hide the tab bar when only one tab is open.**
-- **Appearance**: the same options as `vim.g.nuivim` below. A value set in
+- **Appearance**: the same options as `vim.g.nuivim` below. Each field shows
+  the value in use (the mono font and size come from `'guifont'`, the spacing
+  from `'linespace'`); only values you change are stored. A value set in
   `vim.g.nuivim` wins over the one in Settings; the Settings window shows such
-  fields greyed out.
+  fields greyed out, with the `vim.g.nuivim` value.
 
 Settings are stored in `~/Library/Application Support/app.nuivim/settings.json`.
 

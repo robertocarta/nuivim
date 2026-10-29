@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULTS } from '../../src/config';
 import { Tabs, tabTitle } from '../../src/model/tabs';
-import { layerConfig, parseSettings, SETTINGS_DEFAULTS, tabStart } from '../../src/settings';
+import { appearanceDefaults, layerConfig, parseSettings, SETTINGS_DEFAULTS, showValue, tabStart } from '../../src/settings';
 
 describe('parseSettings', () => {
   it('defaults for nothing stored', () => {
@@ -41,9 +41,12 @@ describe('layerConfig', () => {
 
 describe('tabStart', () => {
   const s = { ...SETTINGS_DEFAULTS, working_directory: '~/notes', homepage: 'index.md' };
-  it('a plain new tab: working directory and homepage', () => {
-    expect(tabStart(null, s)).toEqual({ cwd: '~/notes', files: ['index.md'] });
-    expect(tabStart(null, SETTINGS_DEFAULTS)).toEqual({ cwd: undefined, files: [] });
+  it('the first tab at startup: working directory and homepage', () => {
+    expect(tabStart(null, s, true)).toEqual({ cwd: '~/notes', files: ['index.md'] });
+    expect(tabStart(null, SETTINGS_DEFAULTS, true)).toEqual({ cwd: undefined, files: [] });
+  });
+  it('a new tab later: working directory, no homepage (its swap file is taken)', () => {
+    expect(tabStart(null, s)).toEqual({ cwd: '~/notes', files: [] });
   });
   it('from a shell: its directory and files, no homepage', () => {
     expect(tabStart({ cwd: '/work', files: ['a.txt'] }, s)).toEqual({ cwd: '/work', files: ['a.txt'] });
@@ -51,6 +54,22 @@ describe('tabStart', () => {
   });
   it('from Finder (no directory): the working directory', () => {
     expect(tabStart({ cwd: null, files: ['/x/b.md'] }, s)).toEqual({ cwd: '~/notes', files: ['/x/b.md'] });
+  });
+});
+
+describe('appearanceDefaults', () => {
+  it("takes the mono font and size from 'guifont' and spacing from 'linespace'", () => {
+    const d = appearanceDefaults('SF Mono,Menlo,Monaco:h13', 2);
+    expect(d).toMatchObject({ prose_font: 'Charter', prose_size: 16, mono_font: 'SF Mono, Menlo, Monaco', mono_size: 13, linespace: 2, overflow: 'shrink' });
+    expect(d.prose_filetypes).toEqual(DEFAULTS.prose_filetypes);
+  });
+  it("falls back to Menlo 14 without 'guifont'", () => {
+    expect(appearanceDefaults('', 0)).toMatchObject({ mono_font: 'Menlo', mono_size: 14, linespace: 0 });
+  });
+  it('shows lists comma-separated', () => {
+    expect(showValue(['a', 'b'])).toBe('a, b');
+    expect(showValue(16)).toBe('16');
+    expect(showValue(undefined)).toBe('');
   });
 });
 

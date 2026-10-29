@@ -68,14 +68,15 @@ test('the shell command opens a new tab in the directory it was run from', async
   await expect.poll(() => page.title()).toBe('notes 100% done.md — NuiVim');
 });
 
-test('new tabs start in the working directory with the homepage', async ({ page }) => {
+test('the first tab opens the homepage; later tabs open an empty buffer in the working directory', async ({ page }) => {
   await open(page, { settings: { working_directory: 'tests/fixtures', homepage: 'prose.md' } });
   expect(await lua(page, 'return vim.fn.getcwd()')).toBe(path.join(ROOT, 'tests/fixtures'));
   expect(await lua(page, 'return vim.fn.expand("%:t")')).toBe('prose.md');
   await menu(page, 'new-tab');
   await waitTabs(page, 2);
   expect(await lua(page, 'return vim.fn.getcwd()')).toBe(path.join(ROOT, 'tests/fixtures'));
-  expect(await lua(page, 'return vim.fn.expand("%:t")')).toBe('prose.md');
+  expect(await lua(page, 'return vim.api.nvim_buf_get_name(0)')).toBe('');
+  expect(await lua(page, 'return #vim.fn.getbufinfo({ buflisted = 1 })')).toBe(1);
 });
 
 test('a missing working directory falls back to home', async ({ page }) => {
@@ -93,6 +94,15 @@ test('settings: saving applies to every tab; vim.g.nuivim keys are shown as over
 
   await menu(page, 'settings');
   await expect(page.locator('form.settings')).toBeVisible();
+  // Fields show the values in use, not empty boxes.
+  await expect(page.locator('input[name="working_directory"]')).toHaveValue('~');
+  await expect(page.locator('input[name="prose_size"]')).toHaveValue('16');
+  await expect(page.locator('input[name="mono_font"]')).toHaveValue('SF Mono, Menlo, Monaco, Courier New, monospace');
+  await expect(page.locator('input[name="mono_size"]')).toHaveValue('14');
+  await expect(page.locator('input[name="linespace"]')).toHaveValue('0');
+  await expect(page.locator('input[name="prose_filetypes"]')).toHaveValue(/^markdown, text, tex/);
+  await expect(page.locator('select[name="overflow"]')).toHaveValue('shrink');
+  await expect(page.locator('input[name="prose_font"]')).toHaveValue('Georgia');
   await expect(page.locator('input[name="prose_font"]')).toBeDisabled();
   await expect(page.locator('form.settings')).toContainText('Set by vim.g.nuivim');
   await page.fill('input[name="prose_size"]', '21');

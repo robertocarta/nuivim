@@ -1,13 +1,14 @@
 // NuiVim's own settings (the Settings window, stored by the app), and how they
 // combine with vim.g.nuivim. Pure: no DOM, no Tauri.
 
-import { CONFIG_KEYS, mergeConfig, type Config } from './config';
+import { CONFIG_KEYS, DEFAULTS, FALLBACK_MONO_FONT, FALLBACK_MONO_SIZE, mergeConfig, type Config } from './config';
+import { guifontNames, parseGuifont } from './model/guifont';
 import type { OpenRequest } from './transport';
 
 export interface AppSettings {
   /** New tabs start here (unless opened from a shell); empty: the home folder. */
   working_directory: string;
-  /** File opened in new tabs that have nothing else to open; empty: none. */
+  /** File opened in the first tab when NuiVim starts with nothing else to open; empty: none. */
   homepage: string;
   /** Hide the tab bar while only one tab is open. */
   autohide_tabs: boolean;
@@ -57,10 +58,31 @@ export function layerConfig(appearance: Partial<Config>, nvimRaw: unknown): { co
 /**
  * Where a new tab starts and what it opens. A request (shell command, Finder)
  * brings its own files and, from a shell, its directory; otherwise the tab
- * starts in the settings' working directory with the homepage.
+ * starts in the settings' working directory, with the homepage only for the
+ * first tab at startup (another Neovim opening the same file would hit its swap file).
  */
-export function tabStart(req: OpenRequest | null, s: AppSettings): { cwd?: string; files: string[] } {
+export function tabStart(req: OpenRequest | null, s: AppSettings, withHomepage = false): { cwd?: string; files: string[] } {
   const cwd = req?.cwd || s.working_directory || undefined;
-  const files = req ? req.files : s.homepage ? [s.homepage] : [];
+  const files = req ? req.files : withHomepage && s.homepage ? [s.homepage] : [];
   return { cwd, files };
+}
+
+/**
+ * The appearance values in use when Settings sets nothing: the defaults, with the
+ * mono font and size from Neovim's 'guifont' and the row spacing from 'linespace'.
+ */
+export function appearanceDefaults(guifont: string, linespace: number): Config {
+  return {
+    ...DEFAULTS,
+    prose_filetypes: [...DEFAULTS.prose_filetypes],
+    mono_hl_groups: [...DEFAULTS.mono_hl_groups],
+    mono_font: guifontNames(guifont).join(', ') || FALLBACK_MONO_FONT,
+    mono_size: parseGuifont(guifont).size ?? FALLBACK_MONO_SIZE,
+    linespace,
+  };
+}
+
+/** How a config value is shown in a Settings field. */
+export function showValue(v: unknown): string {
+  return v === undefined ? '' : Array.isArray(v) ? v.join(', ') : String(v);
 }
