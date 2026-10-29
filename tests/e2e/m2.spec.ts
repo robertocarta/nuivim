@@ -11,7 +11,7 @@ test('S5: Markdown with number and signcolumn=yes: prose text area, mono gutter 
     const p = (window as any).__nuivim;
     const cw: number = p.metrics.cw;
     const view = p.renderer.views.get(grid);
-    const gridEl = document.querySelector<HTMLElement>(`.grid[data-grid="${grid}"]`)!;
+    const gridEl = document.querySelector<HTMLElement>(`.screen.active .grid[data-grid="${grid}"]`)!;
     const g = gridEl.getBoundingClientRect();
     const rowEl = view.rowEls.get(p.state.grids.get(grid).rows[2].key) as HTMLElement;
     const pt = rowEl.querySelector<HTMLElement>('.pt')!;
@@ -63,7 +63,7 @@ test('S7: clicking the middle of the 5th character puts the cursor on column 4',
   const textoff = await page.evaluate((g) => (window as any).__nuivim.renderer.views.get(g).textoff, grid);
   const box = await proseCharBox(page, grid, 2, textoff + 4);
   const origin = await page.evaluate((g) => {
-    const r = document.querySelector<HTMLElement>(`.grid[data-grid="${g}"]`)!.getBoundingClientRect();
+    const r = document.querySelector<HTMLElement>(`.screen.active .grid[data-grid="${g}"]`)!.getBoundingClientRect();
     return { x: r.left, y: r.top };
   }, grid);
   await page.mouse.click(origin.x + box.left + box.width / 2, origin.y + box.top + box.height / 2);
@@ -118,7 +118,7 @@ for (const overflow of ['shrink', 'clip'] as const) {
     const grid = await currentWinGrid(page);
     const r = await page.evaluate((grid) => {
       const p = (window as any).__nuivim;
-      const gridEl = document.querySelector<HTMLElement>(`.grid[data-grid="${grid}"]`)!;
+      const gridEl = document.querySelector<HTMLElement>(`.screen.active .grid[data-grid="${grid}"]`)!;
       const win = gridEl.getBoundingClientRect();
       const rows = [...gridEl.querySelectorAll<HTMLElement>('.row')].filter((r) => r.querySelector('.pc')?.textContent?.includes('W'));
       return {

@@ -6,6 +6,8 @@ import { HARNESS_PORT } from '../../playwright.config';
 export interface Session {
   file?: string;
   cmds?: string[];
+  /** Stored NuiVim settings (see src/settings.ts). */
+  settings?: Record<string, unknown>;
 }
 
 /** Opens the frontend on a fresh Neovim (via the harness) and waits for the first paint. */
@@ -13,10 +15,11 @@ export async function open(page: Page, s: Session = {}): Promise<void> {
   const q = new URLSearchParams({ ws: String(HARNESS_PORT) });
   if (s.file) q.set('file', s.file);
   for (const c of s.cmds ?? []) q.append('cmd', c);
+  if (s.settings) q.set('settings', JSON.stringify(s.settings));
   await page.goto(`/?${q}`);
   await page.waitForFunction(() => {
     const p = (window as any).__nuivim;
-    return p && p.renderer.stats.times.length > 0 && p.state.wins.size > 0;
+    return p && p.renderer && p.renderer.stats.times.length > 0 && p.state.wins.size > 0;
   });
   await settle(page);
 }
@@ -59,7 +62,7 @@ export function domRowText(page: Page, grid: number, row: number): Promise<strin
       const cw: number = p.metrics.cw;
       const g = p.state.grids.get(grid);
       const rowObj = g.rows[row];
-      const el = document.querySelector(`.grid[data-grid="${grid}"]`)!;
+      const el = document.querySelector(`.screen.active .grid[data-grid="${grid}"]`)!;
       const rowEl = [...el.querySelectorAll<HTMLElement>(':scope > .row')].find((r) => Math.round(parseFloat(r.style.top) / p.metrics.ch) === row)!;
       const cells: string[] = new Array(g.width).fill(' ');
       for (const span of rowEl.querySelectorAll<HTMLElement>(':scope > span')) {
@@ -118,7 +121,7 @@ export function proseCharBox(page: Page, grid: number, row: number, col: number)
       mid.replaceWith(wrap);
       wrap.appendChild(mid);
       const r = wrap.getBoundingClientRect();
-      const g = (document.querySelector(`.grid[data-grid="${grid}"]`) as HTMLElement).getBoundingClientRect();
+      const g = (document.querySelector(`.screen.active .grid[data-grid="${grid}"]`) as HTMLElement).getBoundingClientRect();
       clone.remove();
       return { left: r.left - g.left, width: r.width, top: r.top - g.top, height: r.height };
     },

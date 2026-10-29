@@ -1,4 +1,5 @@
-// One generated stylesheet: a class per highlight id, plus font variables.
+// A generated stylesheet per tab: a class per highlight id, plus font variables,
+// scoped to that tab's screen (each Neovim numbers its highlights independently).
 
 import { colorHex, type HlAttr } from '../model/hl';
 import type { UiState } from '../model/state';
@@ -15,12 +16,12 @@ export const BOX_LINES: Record<string, string> = {
 /** Rounded corners, drawn with a border radius. */
 export const BOX_ROUND: Record<string, string> = { '╭': 'dr', '╮': 'dl', '╯': 'ul', '╰': 'ur' };
 
-function boxCss(): string {
+function boxCss(scope: string): string {
   // Offsets are snapped to device pixels (--dp) so 1px lines stay crisp.
   const center = 'round(nearest, calc(50% - var(--lw) / 2), var(--dp))';
   const rules: string[] = [];
   for (const [ch, a] of Object.entries(BOX_LINES)) {
-    const sel = `.row>span.b${ch.charCodeAt(0).toString(16)}`;
+    const sel = `${scope} .row>span.b${ch.charCodeAt(0).toString(16)}`;
     const base = 'content:"";position:absolute;background:currentColor';
     if (a.includes('u') || a.includes('d')) {
       rules.push(`${sel}::before{${base};left:${center};width:var(--lw);top:${a.includes('u') ? 0 : center};bottom:${a.includes('d') ? 0 : center}}`);
@@ -33,7 +34,7 @@ function boxCss(): string {
     const v = a[0] === 'd' ? 'top' : 'bottom';
     const h = a[1] === 'r' ? 'left' : 'right';
     rules.push(
-      `.row>span.b${ch.charCodeAt(0).toString(16)}::before{content:"";position:absolute;box-sizing:border-box;` +
+      `${scope} .row>span.b${ch.charCodeAt(0).toString(16)}::before{content:"";position:absolute;box-sizing:border-box;` +
         `${a[1] === 'r' ? 'right' : 'left'}:0;${a[0] === 'd' ? 'bottom' : 'top'}:0;` +
         `width:calc(100% - ${center});height:calc(100% - ${center});` +
         `border-${v}:var(--lw) solid currentColor;border-${h}:var(--lw) solid currentColor;border-${v}-${h}-radius:calc(var(--cw) / 2)}`,
@@ -41,10 +42,6 @@ function boxCss(): string {
   }
   return rules.join('\n');
 }
-
-const sheet = document.createElement('style');
-sheet.id = 'nuivim-hl';
-document.head.appendChild(sheet);
 
 /**
  * Ids of highlights that stay monospace inside prose rows (mono_hl_groups). A
@@ -58,7 +55,7 @@ export function monoHlIds(state: UiState, groups: string[]): Set<number> {
   return ids;
 }
 
-function hlRule(id: number, a: HlAttr): string {
+function hlRule(scope: string, id: number, a: HlAttr): string {
   const fg = a.fg !== undefined ? colorHex(a.fg) : 'var(--fg)';
   const bg = a.bg !== undefined ? colorHex(a.bg) : undefined;
   const p: string[] = [];
@@ -82,21 +79,26 @@ function hlRule(id: number, a: HlAttr): string {
       'text-decoration-skip-ink:none',
     );
   }
-  return `.h${id}{${p.join(';')}}`;
+  return `${scope} .h${id}{${p.join(';')}}`;
 }
 
-export function writeStyles(state: UiState, metrics: Metrics, monoIds: Set<number>): void {
+/** The colour and font variables of a tab, as CSS declarations. */
+export function cssVars(state: UiState, metrics: Metrics): string {
   const { fonts } = metrics;
   const d = state.defaults;
-  const rules = [
-    `:root{--fg:${colorHex(d.fg)};--bg:${colorHex(d.bg)};--sp:${colorHex(d.sp)};` +
+  return (
+    `--fg:${colorHex(d.fg)};--bg:${colorHex(d.bg)};--sp:${colorHex(d.sp)};` +
       `--mono-font:${fonts.monoFamily};--mono-size:${fonts.monoSize}px;` +
       `--prose-font:${fonts.proseFamily};--prose-size:${fonts.proseSize}px;--ch:${metrics.ch}px;` +
-      `--bx-scale:${metrics.ch / Math.max(1, metrics.monoLineHeight)};--cw:${metrics.cw}px;--lw:${Math.max(1, Math.round(metrics.cw / 9))}px;--dp:${1 / (window.devicePixelRatio || 1)}px}`,
-    boxCss(),
-  ];
-  for (const [id, attr] of state.hl) rules.push(hlRule(id, attr));
+      `--bx-scale:${metrics.ch / Math.max(1, metrics.monoLineHeight)};--cw:${metrics.cw}px;--lw:${Math.max(1, Math.round(metrics.cw / 9))}px;--dp:${1 / (window.devicePixelRatio || 1)}px`
+  );
+}
+
+/** Writes a tab's stylesheet; every rule is scoped to `scope` (its screen). */
+export function writeStyles(sheet: HTMLStyleElement, scope: string, state: UiState, metrics: Metrics, monoIds: Set<number>): void {
+  const rules = [`${scope}{${cssVars(state, metrics)}}`, boxCss(scope)];
+  for (const [id, attr] of state.hl) rules.push(hlRule(scope, id, attr));
   // mono_hl_groups: set in the mono font but kept in the prose flow.
-  if (monoIds.size) rules.push([...monoIds].map((id) => `.pt .h${id}`).join(',') + '{font-family:var(--mono-font);font-size:var(--mono-size)}');
+  if (monoIds.size) rules.push([...monoIds].map((id) => `${scope} .pt .h${id}`).join(',') + '{font-family:var(--mono-font);font-size:var(--mono-size)}');
   sheet.textContent = rules.join('\n');
 }

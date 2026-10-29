@@ -52,6 +52,8 @@ export interface PaintStats {
   times: number[];
 }
 
+let renderers = 0;
+
 const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ESC[c]);
 const isAscii = (t: string) => t.length === 1 && t.charCodeAt(0) < 0x80;
@@ -79,6 +81,10 @@ export class Renderer {
   private cursorEl = document.createElement('div');
   private measureHost = document.createElement('div');
   private blinkSheet = document.createElement('style');
+  private sheet = document.createElement('style');
+  /** Selector of this renderer's screen; its stylesheet and animations are scoped to it. */
+  private readonly scope: string;
+  private readonly blinkName: string;
   private blinkKey = '';
   private blinkFlip = false;
   private lastCursor = '';
@@ -96,8 +102,17 @@ export class Renderer {
     this.cursorEl.className = 'cursor';
     this.measureHost.className = 'pt measure';
     this.measureHost.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(this.measureHost);
-    document.head.appendChild(this.blinkSheet);
+    const id = (screen.dataset.tab ??= String(++renderers));
+    this.scope = `.screen[data-tab="${id}"]`;
+    this.blinkName = `pvblink${id}_`;
+    screen.appendChild(this.measureHost);
+    document.head.append(this.sheet, this.blinkSheet);
+  }
+
+  /** Removes the renderer's stylesheets (its screen is removed by the owner). */
+  dispose(): void {
+    this.sheet.remove();
+    this.blinkSheet.remove();
   }
 
   /** New fonts or config: everything is re-measured and repainted. */
@@ -125,7 +140,7 @@ export class Renderer {
     const { cw, ch } = this.metrics;
     if (state.hlDirty || this.stylesDirty) {
       this.monoIds = monoHlIds(state, this.config.mono_hl_groups);
-      writeStyles(state, this.metrics, this.monoIds);
+      writeStyles(this.sheet, this.scope, state, this.metrics, this.monoIds);
       state.hlDirty = false;
       this.stylesDirty = false;
     }
@@ -526,12 +541,12 @@ export class Renderer {
       this.blinkKey = key;
       const pct = (on / (on + off)) * 100;
       const frames = `{0%{opacity:1}${pct}%{opacity:0}100%{opacity:0}}`;
-      this.blinkSheet.textContent = `@keyframes pvblink0${frames}@keyframes pvblink1${frames}`;
+      this.blinkSheet.textContent = `@keyframes ${this.blinkName}0${frames}@keyframes ${this.blinkName}1${frames}`;
     }
     if (where !== this.lastCursor) {
       this.lastCursor = where;
       this.blinkFlip = !this.blinkFlip;
     }
-    el.style.animation = `pvblink${this.blinkFlip ? 1 : 0} ${on + off}ms step-end ${wait}ms infinite`;
+    el.style.animation = `${this.blinkName}${this.blinkFlip ? 1 : 0} ${on + off}ms step-end ${wait}ms infinite`;
   }
 }

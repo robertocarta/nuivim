@@ -6,9 +6,11 @@
     <title>NuiVim</title>
   </head>
   <body>
-    <div id="screen"></div>
+    <nav id="tabbar" hidden aria-label="Tabs"></nav>
+    <div id="screens"></div>
     <div id="ime" style="display: none"></div>
     <textarea id="input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Neovim input"></textarea>
+    <div id="notice" role="status" hidden></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

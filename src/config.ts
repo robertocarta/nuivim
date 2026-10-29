@@ -54,12 +54,16 @@ const CHECKS: Record<keyof Config, Check> = {
   linespace: isLinespace,
 };
 
+/** Keys a config table may set. */
+export const CONFIG_KEYS = Object.keys(CHECKS) as (keyof Config)[];
+
 /**
- * Merges a raw vim.g.nuivim value over the defaults. Unknown keys and values of
- * the wrong type are ignored (the default stays) and produce one warning each.
+ * Merges a raw config table (vim.g.nuivim, or the appearance part of NuiVim's
+ * settings) over `base`. Unknown keys and values of the wrong type are ignored
+ * (the base value stays) and produce one warning each.
  */
-export function mergeConfig(raw: unknown): { config: Config; warnings: string[] } {
-  const config: Config = { ...DEFAULTS, prose_filetypes: [...DEFAULTS.prose_filetypes], mono_hl_groups: [...DEFAULTS.mono_hl_groups] };
+export function mergeConfig(raw: unknown, base: Readonly<Config> = DEFAULTS): { config: Config; warnings: string[] } {
+  const config: Config = { ...base, prose_filetypes: [...base.prose_filetypes], mono_hl_groups: [...base.mono_hl_groups] };
   const warnings: string[] = [];
   // An empty Lua table arrives as an empty array.
   if (raw === null || raw === undefined || (Array.isArray(raw) && raw.length === 0)) return { config, warnings };

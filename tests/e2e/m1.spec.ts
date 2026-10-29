@@ -27,9 +27,9 @@ test('S2: :vsplit then :split gives three window boxes and separators on grid 1'
     return [...p.state.wins.values()]
       .filter((b: any) => b.kind === 'win' && !b.hidden)
       .map((b: any) => {
-        const el = document.querySelector<HTMLElement>(`.grid[data-grid="${b.grid}"]`)!;
+        const el = document.querySelector<HTMLElement>(`.screen.active .grid[data-grid="${b.grid}"]`)!;
         const r = el.getBoundingClientRect();
-        const s = document.getElementById('screen')!.getBoundingClientRect();
+        const s = document.querySelector('.screen.active')!.getBoundingClientRect();
         return { row: b.row, col: b.col, x: r.left - s.left, y: r.top - s.top, cw: p.metrics.cw, ch: p.metrics.ch };
       });
   });
@@ -60,7 +60,7 @@ test('S3: float with border, box drawing, CJK and emoji keeps every character on
     const p = (window as any).__nuivim;
     const cw: number = p.metrics.cw;
     const f = [...p.state.wins.values()].find((b: any) => b.kind === 'float');
-    const gridEl = document.querySelector<HTMLElement>(`.grid[data-grid="${f.grid}"]`)!;
+    const gridEl = document.querySelector<HTMLElement>(`.screen.active .grid[data-grid="${f.grid}"]`)!;
     const base = gridEl.getBoundingClientRect().left;
     const worst: { ch: string; err: number }[] = [];
     let count = 0;
@@ -100,8 +100,8 @@ test('S4: insert-mode completion popup with 5 candidates aligns to cells', async
     const f = [...p.state.wins.values()].find((b: any) => b.kind === 'float' && !b.hidden);
     if (!f) return null;
     const g = p.state.grids.get(f.grid);
-    const el = document.querySelector<HTMLElement>(`.grid[data-grid="${f.grid}"]`)!;
-    const anchor = document.querySelector<HTMLElement>(`.grid[data-grid="${f.float.anchorGrid}"]`)!.getBoundingClientRect();
+    const el = document.querySelector<HTMLElement>(`.screen.active .grid[data-grid="${f.grid}"]`)!;
+    const anchor = document.querySelector<HTMLElement>(`.screen.active .grid[data-grid="${f.float.anchorGrid}"]`)!.getBoundingClientRect();
     const r = el.getBoundingClientRect();
     const lefts = [...el.querySelectorAll<HTMLElement>('.row > span')].map((s) => s.getBoundingClientRect().left - r.left);
     return {

@@ -1,256 +1,297 @@
-// Wires transport, model, view and input together.
+// The app: tabs (one Neovim each), the tab bar, settings, keyboard and IME input.
 
 import './style.css';
-import { DEFAULTS, FALLBACK_MONO_FONT, FALLBACK_MONO_SIZE, mergeConfig, type Config } from './config';
-import { cssFamily, parseGuifont } from './model/guifont';
-import { UiState } from './model/state';
+import { DEFAULTS, type Config } from './config';
 import { attachKeyboard } from './input/keyboard';
-import { attachMouse } from './input/mouse';
-import { createTransport, type ExitInfo, type StartError, type Transport } from './transport';
-import { measure, type Fonts, type Metrics } from './view/metrics';
-import { Renderer } from './view/renderer';
-
-/** Filetype, buftype and gutter width for each window, in one round trip. */
-const WININFO_LUA = `
-local out = {}
-for _, w in ipairs(...) do
-  if vim.api.nvim_win_is_valid(w) then
-    local b = vim.api.nvim_win_get_buf(w)
-    local info = vim.fn.getwininfo(w)[1]
-    out[#out + 1] = {
-      w,
-      vim.api.nvim_get_option_value('filetype', { buf = b }),
-      vim.api.nvim_get_option_value('buftype', { buf = b }),
-      info and info.textoff or 0,
-    }
-  end
-end
-return out`;
+import { Tabs } from './model/tabs';
+import { Session } from './session';
+import { parseSettings, tabStart, type AppSettings } from './settings';
+import { createTransport, type OpenRequest, type Transport } from './transport';
+import { openSettingsPanel } from './view/settings-panel';
+import { cssVars } from './view/styles';
+import { TabBar } from './view/tabbar';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-function showPage(title: string, body: string, pre?: string): void {
-  document.body.className = 'page';
-  document.body.innerHTML = '';
-  const main = document.createElement('main');
-  const h = document.createElement('h1');
-  h.textContent = title;
-  const p = document.createElement('p');
-  p.textContent = body;
-  main.append(h, p);
-  if (pre) {
-    const el = document.createElement('pre');
-    el.textContent = pre;
-    main.append(el);
+class App {
+  readonly tabs = new Tabs();
+  readonly sessions = new Map<number, Session>();
+  settings: AppSettings;
+  sizeDelta = 0;
+  private readonly screens = $<HTMLDivElement>('screens');
+  private readonly ta = $<HTMLTextAreaElement>('input');
+  private readonly ime = $<HTMLDivElement>('ime');
+  private readonly notice = $<HTMLDivElement>('notice');
+  private readonly tabBar: TabBar;
+  private settingsOpen = false;
+  private quitting = false;
+  private lastTitle = '';
+  private lastVars = '';
+  /** The session whose screen is shown (activate() may be called after tabs.active changed). */
+  private shown: Session | undefined;
+
+  constructor(
+    readonly transport: Transport,
+    rawSettings: unknown,
+  ) {
+    this.settings = parseSettings(rawSettings);
+    this.tabBar = new TabBar($('tabbar'), {
+      select: (id) => this.activate(id),
+      close: (id) => this.sessions.get(id)?.close(),
+      add: () => void this.newTab(null),
+    });
+    this.wireTransport();
+    this.wireInput();
   }
-  document.body.append(main);
+
+  get active(): Session | undefined {
+    return this.sessions.get(this.tabs.active);
+  }
+
+  /** Opens a tab: for a request (shell command, Finder, launch) or a plain new tab. */
+  async newTab(req: OpenRequest | null): Promise<Session> {
+    const { cwd, files } = tabStart(req, this.settings);
+    const tab = this.tabs.add();
+    const session = new Session(tab.id, this.transport, {
+      appearance: () => this.settings.appearance,
+      sizeDelta: () => this.sizeDelta,
+      area: () => ({ width: this.screens.clientWidth, height: this.screens.clientHeight }),
+      focusInput: () => this.ta.focus(),
+      changed: (s) => this.sessionChanged(s),
+      exited: (s) => this.sessionExited(s),
+    });
+    this.sessions.set(tab.id, session);
+    this.screens.append(session.screen);
+    this.activate(tab.id);
+    await session.start(cwd, files);
+    return session;
+  }
+
+  activate(id: number): void {
+    const previous = this.shown;
+    this.tabs.select(id);
+    const next = this.active;
+    this.shown = next;
+    if (previous && previous !== next) {
+      previous.show(false);
+      previous.setFocus(false);
+    }
+    this.layout();
+    if (next) {
+      next.show(true);
+      next.setFocus(document.hasFocus());
+      this.sessionChanged(next);
+    }
+    this.ta.focus();
+  }
+
+  /** Shows or hides the tab bar, then fits the active tab to the space left. */
+  layout(): void {
+    const hidden = this.settings.autohide_tabs && this.tabs.list.length <= 1;
+    this.tabBar.render(this.tabs, hidden);
+    document.body.classList.toggle('with-tabs', !hidden);
+    this.active?.resize();
+  }
+
+  private sessionChanged(s: Session): void {
+    this.tabs.setTitle(s.id, s.title);
+    this.tabBar.render(this.tabs, this.settings.autohide_tabs && this.tabs.list.length <= 1);
+    if (s !== this.active) return;
+    // The tab bar, IME overlay and window background follow the active tab's colours and fonts.
+    const vars = cssVars(s.state, s.metrics);
+    if (vars !== this.lastVars) {
+      this.lastVars = vars;
+      document.documentElement.setAttribute('style', vars);
+    }
+    const title = s.title ? `${s.title} — NuiVim` : 'NuiVim';
+    if (title !== this.lastTitle) {
+      this.lastTitle = title;
+      this.transport.setTitle(title);
+    }
+    this.placeInput();
+  }
+
+  private sessionExited(s: Session): void {
+    this.tabs.remove(s.id);
+    this.sessions.delete(s.id);
+    s.screen.remove();
+    s.renderer.dispose();
+    if (this.shown === s) this.shown = undefined;
+    if (!this.tabs.list.length) {
+      this.transport.quitApp();
+      return;
+    }
+    this.activate(this.tabs.active);
+  }
+
+  /** Quit and the close button: every tab's Neovim is asked to quit (and may ask to save). */
+  quit(): void {
+    this.quitting = true;
+    if (!this.sessions.size) this.transport.quitApp();
+    for (const s of [...this.sessions.values()]) s.close();
+  }
+
+  private placeInput(): void {
+    const s = this.active;
+    if (!s || s.dead) return;
+    const c = s.renderer.cursorBox(s.state);
+    this.ta.style.transform = `translate(${c.x}px, ${c.y}px)`;
+    this.ta.style.height = `${c.h}px`;
+    this.ime.style.transform = this.ta.style.transform;
+    this.ime.style.height = `${c.h}px`;
+    this.ime.classList.toggle('cp', c.prose);
+  }
+
+  private showNotice(text: string): void {
+    this.notice.textContent = text;
+    this.notice.hidden = false;
+    setTimeout(() => (this.notice.hidden = true), 8000);
+  }
+
+  openSettings(): void {
+    if (this.settingsOpen) return;
+    this.settingsOpen = true;
+    openSettingsPanel(document.body, {
+      settings: this.settings,
+      overridden: this.active?.overridden ?? [],
+      save: async (next) => {
+        try {
+          await this.transport.saveSettings(next);
+        } catch (e) {
+          return `Could not save: ${String(e)}`;
+        }
+        this.settings = next;
+        for (const s of this.sessions.values()) s.applyConfig();
+        this.layout();
+        return null;
+      },
+      close: () => {
+        this.settingsOpen = false;
+        this.ta.focus();
+      },
+    });
+  }
+
+  private menu(id: string): void {
+    switch (id) {
+      case 'settings':
+        return this.openSettings();
+      case 'install-shell-command':
+        this.transport.installShellCommand().then(
+          (msg) => this.showNotice(msg),
+          (e) => this.showNotice(`Could not install the shell command: ${String(e)}`),
+        );
+        return;
+      case 'new-tab':
+        void this.newTab(null);
+        return;
+      case 'close-tab':
+        this.active?.close();
+        return;
+      case 'next-tab':
+        this.tabs.cycle(1);
+        return this.activate(this.tabs.active);
+      case 'previous-tab':
+        this.tabs.cycle(-1);
+        return this.activate(this.tabs.active);
+      case 'quit':
+        return this.quit();
+    }
+  }
+
+  private wireTransport(): void {
+    const t = this.transport;
+    t.onRedraw((tab, events) => this.sessions.get(tab)?.onRedraw(events));
+    t.onNotify((tab, method, args) => this.sessions.get(tab)?.onNotify(method, args));
+    t.onExit((tab, info) => this.sessions.get(tab)?.onExit(info));
+    t.onOpenFiles((paths) => this.active?.openFiles(paths));
+    t.onOpenRequest((req) => void this.newTab(req));
+    t.onMenu((id) => this.menu(id));
+  }
+
+  private wireInput(): void {
+    attachKeyboard(this.ta, {
+      send: (keys) => this.active?.input(keys),
+      optionIsMeta: () => this.active?.config.option_is_meta ?? 'none',
+      appKey: (e) => this.appKey(e),
+      compose: (text) => {
+        this.ime.textContent = text ?? '';
+        this.ime.style.display = text ? '' : 'none';
+        this.placeInput();
+      },
+    });
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => this.active?.resize(), 50);
+    });
+    window.addEventListener('focus', () => {
+      document.body.classList.remove('unfocused');
+      if (!this.settingsOpen) this.ta.focus();
+      this.active?.setFocus(true);
+    });
+    window.addEventListener('blur', () => {
+      document.body.classList.add('unfocused');
+      this.active?.setFocus(false);
+    });
+  }
+
+  /** Cmd keys the app keeps: font size and tab selection (the rest are menu items). */
+  private appKey(e: KeyboardEvent): boolean {
+    if (!e.metaKey || e.ctrlKey || e.altKey) return false;
+    if (/^[1-9]$/.test(e.key) && !e.shiftKey) {
+      this.tabs.selectNumber(Number(e.key));
+      this.activate(this.tabs.active);
+      return true;
+    }
+    if (e.key === '=' || e.key === '+') this.sizeDelta++;
+    else if (e.key === '-') this.sizeDelta--;
+    else if (e.key === '0') this.sizeDelta = 0;
+    else return ['q', 'h', 'm', 't', 'w', ','].includes(e.key.toLowerCase()); // handled by the menu
+    for (const s of this.sessions.values()) s.refreshFonts();
+    this.active?.paint();
+    return true;
+  }
+
+  get isQuitting(): boolean {
+    return this.quitting;
+  }
 }
 
 async function main(): Promise<void> {
-  const screen = $<HTMLDivElement>('screen');
-  const ta = $<HTMLTextAreaElement>('input');
-  const ime = $<HTMLDivElement>('ime');
+  const transport = await createTransport();
+  const app = new App(transport, await transport.loadSettings().catch(() => ({})));
 
-  const transport: Transport = await createTransport();
-  const state = new UiState();
-  state.log = (m) => console.debug(m);
-  let config: Config = mergeConfig(undefined).config;
-  let sizeDelta = 0;
-  let started = false;
-  let lastTitle = '';
-
-  const fonts = (): Fonts => {
-    const gf = parseGuifont(state.options.guifont);
-    return {
-      monoFamily: (config.mono_font ? cssFamily(config.mono_font) : (gf.family ?? cssFamily(FALLBACK_MONO_FONT))) + ', monospace',
-      monoSize: Math.max(4, (config.mono_size ?? gf.size ?? FALLBACK_MONO_SIZE) + sizeDelta),
-      proseFamily: cssFamily(config.prose_font) + ', serif',
-      proseSize: Math.max(4, config.prose_size + sizeDelta),
-      linespace: config.linespace ?? state.options.linespace,
-    };
-  };
-  let metrics: Metrics = measure(fonts());
-  const renderer = new Renderer(screen, metrics, config);
-
-  const gridSize = () => ({
-    cols: Math.max(1, Math.floor(window.innerWidth / metrics.cw)),
-    rows: Math.max(1, Math.floor(window.innerHeight / metrics.ch)),
-  });
-
-  let sentSize = '';
-  const resizeNow = () => {
-    if (!started) return;
-    const { cols, rows } = gridSize();
-    const key = `${cols}x${rows}`;
-    if (key === sentSize) return;
-    sentSize = key;
-    transport.call('nvim_ui_try_resize', [cols, rows]).catch((e) => console.error(e));
-  };
-  let resizeTimer: ReturnType<typeof setTimeout> | undefined;
-  window.addEventListener('resize', () => {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(resizeNow, 50);
-  });
-
-  const placeInput = () => {
-    const c = renderer.cursorBox(state);
-    ta.style.transform = `translate(${c.x}px, ${c.y}px)`;
-    ta.style.height = `${c.h}px`;
-    ime.style.transform = ta.style.transform;
-    ime.style.height = `${c.h}px`;
-    ime.classList.toggle('cp', c.prose);
-  };
-
-  const paint = () => {
-    renderer.paint(state);
-    if (state.title !== lastTitle) {
-      lastTitle = state.title;
-      transport.setTitle(state.title || 'NuiVim');
-    }
-    placeInput();
-  };
-
-  /** Re-measures fonts; on a change, repaints everything and resizes the grid. */
-  const refreshFonts = (force = false) => {
-    const m = measure(fonts());
-    const same = JSON.stringify(m) === JSON.stringify(metrics);
-    if (same && !force) return;
-    metrics = m;
-    renderer.reset(state, metrics, config);
-    resizeNow();
-  };
-
-  const runWinQueries = () => {
-    const wins = state.takeWinQueries();
-    if (!wins.length) return;
-    transport
-      .call('nvim_exec_lua', [WININFO_LUA, [wins]])
-      .then((result) => {
-        let changed = false;
-        for (const item of (result as unknown[]) ?? []) {
-          if (!Array.isArray(item)) continue;
-          const [w, filetype, buftype, textoff] = item;
-          changed = state.setWinInfo(Number(w), { filetype: String(filetype), buftype: String(buftype), textoff: Number(textoff) || 0 }) || changed;
-        }
-        if (changed) paint();
-      })
-      .catch((e) => console.error('nuivim: window info query failed', e));
-  };
-
-  const applyConfig = (raw: unknown) => {
-    const merged = mergeConfig(raw);
-    config = merged.config;
-    for (const w of merged.warnings) {
-      transport.call('nvim_echo', [[[`nuivim: ${w}`, 'WarningMsg']], true, {}]).catch(() => {});
-    }
-    refreshFonts(true);
-    paint();
-  };
-
-  let loggedResize = false;
-  transport.onRedraw((batch) => {
-    if (!loggedResize && batch.some((ev) => Array.isArray(ev) && ev[0] === 'grid_resize' && ev.slice(1).some((a) => Array.isArray(a) && a[0] === 1))) {
-      loggedResize = true;
-      console.info('nuivim: grid_resize for grid 1');
-    }
-    if (!state.apply(batch)) return;
-    if (state.fontsDirty) {
-      state.fontsDirty = false;
-      refreshFonts();
-    }
-    runWinQueries();
-    paint();
-  });
-
-  transport.onNotify((method, args) => {
-    if (method !== 'nuivim' || !Array.isArray(args)) return;
-    if (args[0] === 'config') applyConfig(args[1]);
-    else if (args[0] === 'wininfo') {
-      state.queueAllWinQueries();
-      runWinQueries();
-    }
-  });
-
-  transport.onExit((info: ExitInfo) => {
-    showPage(
-      'Neovim stopped',
-      info.code === null ? 'Neovim was killed by a signal.' : `Neovim exited with code ${info.code}.`,
-      info.stderr.filter((l) => l.trim()).join('\n') || '(no output on stderr)',
-    );
-  });
-
-  // :drop takes a file list, so each path is escaped as one list item (spaces, %, #).
-  const DROP_LUA = "vim.api.nvim_cmd({ cmd = 'drop', args = { vim.fn.fnameescape(...) } }, {})";
-  transport.onOpenFiles((paths) => {
-    for (const p of paths) transport.call('nvim_exec_lua', [DROP_LUA, [p]]).catch((e) => console.error(e));
-  });
-
-  attachKeyboard(ta, {
-    send: (keys) => transport.input(keys),
-    optionIsMeta: () => config.option_is_meta,
-    appKey: (e) => {
-      if (!e.metaKey || e.ctrlKey || e.altKey) return false;
-      if (e.key === '=' || e.key === '+') sizeDelta++;
-      else if (e.key === '-') sizeDelta--;
-      else if (e.key === '0') sizeDelta = 0;
-      else return ['q', 'h', 'm'].includes(e.key.toLowerCase()); // handled by the menu
-      refreshFonts();
-      paint();
-      return true;
-    },
-    compose: (text) => {
-      ime.textContent = text ?? '';
-      ime.style.display = text ? '' : 'none';
-      placeInput();
-    },
-  });
-
-  attachMouse(screen, {
-    enabled: () => state.mouseOn,
-    hitTest: (x, y) => renderer.hitTest(x, y, state),
-    send: (button, action, modifier, hit) => transport.inputMouse(button, action, modifier, hit.grid, hit.row, hit.col),
-    cell: () => metrics,
-    focus: () => ta.focus(),
-  });
-
-  window.addEventListener('focus', () => {
-    document.body.classList.remove('unfocused');
-    ta.focus();
-    if (started) transport.call('nvim_ui_set_focus', [true]).catch(() => {});
-  });
-  window.addEventListener('blur', () => {
-    document.body.classList.add('unfocused');
-    if (started) transport.call('nvim_ui_set_focus', [false]).catch(() => {});
-  });
-
-  // Exposed for tests and debugging.
+  // Exposed for tests and debugging; state, renderer, config and metrics are the active tab's.
+  const activeCall = (m: string, p: unknown[]) => transport.call(app.tabs.active, m, p);
   Object.assign(window, {
     __nuivim: {
-      state,
-      renderer,
-      transport,
-      get config() {
-        return config;
+      app,
+      get state() {
+        return app.active?.state;
+      },
+      get renderer() {
+        return app.active?.renderer;
+      },
+      get config(): Config | undefined {
+        return app.active?.config;
       },
       get metrics() {
-        return metrics;
+        return app.active?.metrics;
       },
+      transport: new Proxy(transport, {
+        get: (target, prop) => (prop === 'call' ? activeCall : Reflect.get(target, prop)),
+      }),
       defaults: DEFAULTS,
     },
   });
 
-  ta.focus();
-  const { cols, rows } = gridSize();
-  try {
-    await transport.start(cols, rows);
-    started = true;
-    sentSize = `${cols}x${rows}`;
-    resizeNow();
-  } catch (e) {
-    const err = e as StartError;
-    console.error(`nuivim: start failed: ${err?.message ?? String(e)}`);
-    showPage('NuiVim could not start Neovim', err?.message ?? String(e));
-  }
+  const requests = await transport.launchRequests();
+  if (!requests.length) await app.newTab(null);
+  for (const req of requests) await app.newTab(req);
 }
 
-main().catch((e) => showPage('NuiVim failed to start', String(e)));
+main().catch((e) => {
+  document.body.className = 'page';
+  document.body.textContent = `NuiVim failed to start: ${String(e)}`;
+});

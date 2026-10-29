@@ -46,12 +46,58 @@ The bundles land in `src-tauri/target/.../release/bundle/`. The app is not
 signed: the first time, right-click it in Finder and choose **Open**, or run
 `xattr -dr com.apple.quarantine NuiVim.app`.
 
-Open files by dropping them on the window, with **Open With** in Finder, or
-from a terminal: `open -a NuiVim notes.md`.
+Open files by dropping them on the window (they open in the current tab), with
+**Open With** in Finder (a new tab), or from a terminal with the `nuivim`
+command (below).
+
+### The `nuivim` shell command
+
+Choose **NuiVim → Install Shell Command…** once. It writes a small script to
+`~/.local/bin/nuivim` (add `~/.local/bin` to your `PATH` if it is not there).
+Then, from any terminal:
+
+```sh
+nuivim notes.md          # a new tab for notes.md, working directory = this directory
+nuivim                   # a new tab in this directory
+```
+
+If NuiVim is running, the files open in a new tab of that window; otherwise
+NuiVim starts. The tab's Neovim runs in the directory you ran the command from,
+so relative paths, `:e`, file pickers and `:pwd` behave as in a terminal.
+
+## Tabs
+
+Each tab is its own Neovim, with its own working directory, buffers and
+`:messages`; closing the tab (or quitting its Neovim with `:q`) ends it.
+
+| Key | |
+| --- | --- |
+| **Cmd-T** | new tab (working directory and homepage from Settings) |
+| **Cmd-W** | close tab (`:confirm qa` in that tab, so unsaved changes are asked about) |
+| **Cmd-1** … **Cmd-8**, **Cmd-9** | go to tab 1–8, the last tab |
+| **Cmd-Shift-]**, **Cmd-Shift-[** | next, previous tab |
+
+The tab bar hides itself while only one tab is open; turn that off in Settings.
+A tab's title is the name of the file in its current window.
+
+## Settings
+
+**NuiVim → Settings…** (**Cmd-,**):
+
+- **Working directory**: where new tabs start (default: your home folder). Tabs
+  opened with the `nuivim` command start where it was run instead.
+- **Homepage file**: opened in every new tab that has nothing else to open,
+  e.g. `~/notes/index.md` or a path relative to the working directory.
+- **Hide the tab bar when only one tab is open.**
+- **Appearance**: the same options as `vim.g.nuivim` below. A value set in
+  `vim.g.nuivim` wins over the one in Settings; the Settings window shows such
+  fields greyed out.
+
+Settings are stored in `~/Library/Application Support/app.nuivim/settings.json`.
 
 ## Configuration
 
-Configure NuiVim from your Neovim config with one global table. It is harmless
+Besides the Settings window, NuiVim can be configured from your Neovim config with one global table. It is harmless
 in a terminal Neovim, so one `init.lua` works everywhere:
 
 ```lua
@@ -129,8 +175,9 @@ vim.api.nvim_create_autocmd("FileType", {
 
 - **Cmd-=**, **Cmd--**, **Cmd-0**: bigger, smaller and configured font sizes
   (both fonts, this session only).
-- **Cmd-Q** and the close button run `:confirm qa`. **Cmd-H** hides, **Cmd-M**
-  minimises.
+- **Cmd-Q** and the close button run `:confirm qa` in every tab. **Cmd-H**
+  hides, **Cmd-M** minimises, **Cmd-,** opens Settings; **Cmd-T**, **Cmd-W**,
+  **Cmd-1…9** and **Cmd-Shift-[ / ]** are for tabs.
 - Every other Cmd combination reaches Neovim as `<D-…>`. NuiVim maps
   **Cmd-C** (copy in visual mode), **Cmd-V** (paste in normal, insert and
   command-line mode) and **Cmd-A** (select all), but only where you have not
@@ -155,8 +202,8 @@ vim.api.nvim_create_autocmd("FileType", {
   Option produces.
 - `winblend`/`pumblend` transparency, ligature settings, smooth scrolling and
   cursor animation are not supported.
-- One window running one local Neovim. No tabline, sidebar or other GUI chrome:
-  Neovim draws its own command line, messages and popup menu.
+- One window; each tab runs one local Neovim. Neovim draws its own command
+  line, messages, popup menu and tabline (`:tabnew` tabs live inside a NuiVim tab).
 
 ## Development
 
@@ -173,12 +220,17 @@ scenarios are saved to `tests/e2e/screenshots/`.
 
 Code map:
 
-- `src-tauri/src/` — Rust backend: spawns Neovim (`nvim.rs`), resolves the
-  login-shell environment (`shellenv.rs`), app window, menu and commands
-  (`main.rs`), and the Lua bridge run inside Neovim (`bridge.lua`).
+- `src-tauri/src/` — Rust backend: one Neovim per tab (`nvim.rs`), launch
+  arguments and the shell command script (`launch.rs`), the login-shell
+  environment (`shellenv.rs`), app window, menu, settings file and commands
+  (`main.rs`), and the Lua bridge run inside each Neovim (`bridge.lua`).
+- `src/main.ts` — the app: tabs, tab bar, settings, keyboard. `src/session.ts` —
+  one tab: its Neovim's state, renderer and screen.
 - `src/model/` — UI state from redraw events: grids, highlights, windows,
-  cursor, keys, layout math. No DOM, enforced by ESLint.
-- `src/view/` — turns the model into DOM: rows, prose runs, floats, cursor.
+  cursor, keys, layout math, the tab list. No DOM, enforced by ESLint.
+- `src/settings.ts`, `src/config.ts` — settings and `vim.g.nuivim`, and how they combine.
+- `src/view/` — turns the model into DOM: rows, prose runs, floats, cursor,
+  tab bar, Settings window.
 - `src/input/` — keyboard, IME and mouse.
 - `src/transport.ts` — Tauri events and commands in the app, a WebSocket in tests.
 

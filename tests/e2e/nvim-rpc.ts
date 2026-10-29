@@ -16,7 +16,11 @@ for (const type of [0, 1, 2]) codec.register({ type, encode: () => null, decode:
 
 export interface NvimOptions {
   file?: string;
+  /** Files as given (relative to cwd), after `file`. */
+  files?: string[];
   cmds?: string[];
+  /** Working directory, relative to the project root; default: the project root. */
+  cwd?: string;
   nvim?: string;
 }
 
@@ -31,8 +35,10 @@ export class NvimRpc {
   constructor(opts: NvimOptions = {}) {
     const args = ['--embed', '--clean', '-u', path.join(ROOT, 'tests/fixtures/init.lua')];
     for (const c of opts.cmds ?? []) args.push('-c', c);
-    if (opts.file) args.push('--', path.resolve(ROOT, opts.file));
-    this.proc = spawn(opts.nvim ?? process.env.NUIVIM_NVIM ?? 'nvim', args, { cwd: ROOT, stdio: ['pipe', 'pipe', 'pipe'] });
+    const files = [...(opts.file ? [path.resolve(ROOT, opts.file)] : []), ...(opts.files ?? [])];
+    if (files.length) args.push('--', ...files);
+    const cwd = opts.cwd ? path.resolve(ROOT, opts.cwd) : ROOT;
+    this.proc = spawn(opts.nvim ?? process.env.NUIVIM_NVIM ?? 'nvim', args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
     this.proc.stderr!.on('data', (d: Buffer) => {
       this.stderr.push(...d.toString().split('\n'));
       this.stderr = this.stderr.slice(-50);

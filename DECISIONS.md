@@ -100,3 +100,28 @@ Choices the build spec left open, and departures from it. Newest last.
 **Decision:** In a prose row, leading blanks, then optionally one list marker (`- * + • ○ ● ◦ ▪ ‣ ⁃ ► ▸`, or up to nine digits and `.`/`)`) followed by blanks, are drawn mono at their cells; proportional text starts after them (a per-row "text start", like `textoff`).
 **Reason:** Indentation reaches the UI as space cells (real spaces, `breakindent`, inline virtual text such as orgmode's virtual indent). Set in the prose font, a space is under half a cell, so a config that doubles org indentation looked like one character. Keeping the marker on cells too makes continuation rows and body text, which are indented by whole cells, line up exactly under their item or heading text.
 **Rejected:** Only blanks on cells (text after a prose-width marker then misaligns with its continuation rows by a few pixels).
+
+## 2026-10-29 — Tabs: one Neovim per tab
+**Decision:** NuiVim tabs (Chrome-style, in the app's window) each run their own `nvim --embed`, with their own working directory. Every backend command and event carries the tab id; the frontend has one `Session` (UI state, renderer, screen element, its own scoped stylesheet) per tab and shows the active one. Each renderer's stylesheet and cursor animations are scoped to its screen (`.screen[data-tab=…]`), since every Neovim numbers its highlights independently; the active tab's colours and fonts are copied to the page root for the tab bar and IME overlay.
+**Reason:** A tab opened from a shell must run in that shell's directory, and Neovim has one working directory per process (window-local `:lcd` would not survive the user's own `:cd`). Separate processes also keep a crashed or busy tab from affecting the others.
+**Rejected:** Mapping NuiVim tabs to Neovim `:tabpage`s (one shared process and global state; Neovim draws its own tabline anyway).
+
+## 2026-10-29 — Tab keys and menu
+**Decision:** File → New Tab (Cmd-T) and Close Tab (Cmd-W), Window → Show Next/Previous Tab (Cmd-Shift-] / Cmd-Shift-[), NuiVim → Settings… (Cmd-,) and Install Shell Command…; Cmd-1…Cmd-8 select tabs and Cmd-9 the last one, as in browsers. These keys no longer reach Neovim as `<D-…>`. Close Tab runs `:confirm qa` in that tab's Neovim; the tab closes when its Neovim exits (also after `:q`). Quit and the window's close button do the same in every tab, and the app quits when the last tab has closed. A Neovim that exits with an error keeps its tab, showing the exit code and stderr.
+
+## 2026-10-29 — "Tab autohide" means: no tab bar with a single tab
+**Decision:** With autohide on (the default), the tab bar is hidden while only one tab is open, as in Ghostty, kitty and Safari.
+**Rejected:** Showing the bar only on hover at the top edge (needs pointer tracking and hides where the tabs are).
+
+## 2026-10-29 — Settings window and settings file
+**Decision:** NuiVim → Settings… opens a panel inside the window. It edits `settings.json` in the app config folder (`~/Library/Application Support/app.nuivim/`): working directory, homepage, tab autohide, and appearance (the `vim.g.nuivim` keys). The effective config of a tab is defaults → Settings appearance → that tab's `vim.g.nuivim`; fields that `vim.g.nuivim` sets are shown disabled with a note. Values are checked with the same rules as `vim.g.nuivim`; a bad value is reported in the panel and nothing is saved.
+**Reason:** One place for GUI-only options (directory, homepage, tabs) without making the user's Neovim config the only way in, while keeping `vim.g.nuivim` (versionable with the config) authoritative.
+**Rejected:** A separate native window (a second web view and capability set for one form); writing the settings into the user's Neovim config.
+
+## 2026-10-29 — Where a tab starts
+**Decision:** A plain new tab (Cmd-T, the + button, launching the app with nothing to open) starts in Settings' working directory (home if empty or not a directory) and opens the homepage, if set. A tab opened by the `nuivim` command starts in the caller's directory and opens only the given files. Finder "Open With" opens a new tab in the Settings working directory. Dropped files open in the current tab, as before.
+
+## 2026-10-29 — The `nuivim` shell command
+**Decision:** NuiVim → Install Shell Command… writes `~/.local/bin/nuivim`, a script running `open -n -a <NuiVim.app> --args --cwd "$PWD" -- "$@"`. The new process hands its arguments and directory to the running instance through `tauri-plugin-single-instance` (new dependency) and exits; if none is running, it becomes the app. Running the app's binary directly (`…/Contents/MacOS/nuivim FILE`) also works, using the process's own directory.
+**Reason:** `open` launches through LaunchServices (no terminal attachment, focus and Dock behave), and macOS gives arguments only to a newly launched process, so a second instance is needed to carry them; the plugin is Tauri's maintained way to forward them. `~/.local/bin` needs no administrator rights.
+**Rejected:** A symlink to the binary in `/usr/local/bin` (needs admin rights on Apple Silicon, and the app would be tied to the terminal session); a custom URL scheme (`nuivim://open?…`, which loses the caller's directory unless encoded and lets any web page open files).

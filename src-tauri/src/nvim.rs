@@ -1,7 +1,7 @@
 //! Owns the Neovim child process: finds it, spawns it, attaches as a UI and
 //! forwards every notification to the frontend unchanged (as JSON).
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
@@ -14,6 +14,8 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{ChildStdin, Command};
+
+use crate::launch;
 
 type Writer = Compat<ChildStdin>;
 
@@ -28,62 +30,46 @@ pub struct StartError {
 }
 
 #[derive(Serialize, Clone)]
-struct ExitInfo {
-    code: Option<i32>,
-    stderr: Vec<String>,
+struct Redraw {
+    tab: u32,
+    events: serde_json::Value,
 }
 
 #[derive(Serialize, Clone)]
 struct Notify {
+    tab: u32,
     method: String,
     args: serde_json::Value,
 }
 
-/// Shared state managed by Tauri.
+#[derive(Serialize, Clone)]
+struct ExitInfo {
+    tab: u32,
+    code: Option<i32>,
+    stderr: Vec<String>,
+}
+
+/// One Neovim per tab, keyed by the frontend's tab id.
+#[derive(Default)]
 pub struct NvimState {
-    client: Mutex<Option<Neovim<Writer>>>,
-    /// Files from Finder or the command line that arrived before the frontend was ready.
-    pending_files: Mutex<Vec<String>>,
-    started: Mutex<bool>,
+    clients: Mutex<HashMap<u32, Neovim<Writer>>>,
+    starting: Mutex<HashSet<u32>>,
 }
 
 impl NvimState {
-    pub fn new(files: Vec<String>) -> Self {
-        Self { client: Mutex::new(None), pending_files: Mutex::new(files), started: Mutex::new(false) }
+    pub fn client(&self, tab: u32) -> Option<Neovim<Writer>> {
+        self.clients.lock().unwrap().get(&tab).cloned()
     }
 
-    pub fn client(&self) -> Option<Neovim<Writer>> {
-        self.client.lock().unwrap().clone()
-    }
-
-    /// Hands paths to the frontend, or keeps them until Neovim is attached.
-    pub fn open_files(&self, app: &AppHandle, paths: Vec<String>) {
-        if paths.is_empty() {
-            return;
-        }
-        if self.client().is_some() {
-            let _ = app.emit("open-files", paths);
-        } else {
-            self.pending_files.lock().unwrap().extend(paths);
-        }
-    }
-
-    /// Asks Neovim to quit; the app closes when the process exits.
-    pub fn quit(&self, app: &AppHandle) {
-        match self.client() {
-            Some(nvim) => {
-                tauri::async_runtime::spawn(async move {
-                    let _ = nvim.command("confirm qa").await;
-                });
-            }
-            None => app.exit(0),
-        }
+    pub fn is_empty(&self) -> bool {
+        self.clients.lock().unwrap().is_empty()
     }
 }
 
 #[derive(Clone)]
 struct Forwarder {
     app: AppHandle,
+    tab: u32,
 }
 
 #[async_trait]
@@ -93,46 +79,59 @@ impl Handler for Forwarder {
     async fn handle_notify(&self, name: String, args: Vec<Value>, _nvim: Neovim<Writer>) {
         let json = serde_json::Value::Array(args.iter().map(to_json).collect());
         if name == "redraw" {
-            let _ = self.app.emit("nvim-redraw", json);
+            let _ = self.app.emit("nvim-redraw", Redraw { tab: self.tab, events: json });
         } else {
-            let _ = self.app.emit("nvim-notify", Notify { method: name, args: json });
+            let _ = self.app.emit("nvim-notify", Notify { tab: self.tab, method: name, args: json });
         }
     }
 }
 
-/// Finds, checks, spawns and attaches Neovim with a `cols` × `rows` grid.
+pub struct StartOptions {
+    pub cols: u64,
+    pub rows: u64,
+    /// Working directory; a missing or empty one means the home folder.
+    pub cwd: Option<String>,
+    pub files: Vec<String>,
+}
+
+/// Finds, checks, spawns and attaches the Neovim of tab `tab`.
 pub async fn start(
     app: AppHandle,
     state: Arc<NvimState>,
     env: &HashMap<String, String>,
-    cols: u64,
-    rows: u64,
+    tab: u32,
+    opts: StartOptions,
 ) -> Result<(), StartError> {
-    {
-        let mut started = state.started.lock().unwrap();
-        if *started {
-            return Err(StartError { kind: "already_started", message: "Neovim is already running".into() });
-        }
-        *started = true;
+    if state.client(tab).is_some() || !state.starting.lock().unwrap().insert(tab) {
+        return Err(StartError { kind: "already_started", message: format!("Tab {tab} already has a Neovim") });
     }
+    let result = spawn_and_attach(app, state.clone(), env, tab, opts).await;
+    state.starting.lock().unwrap().remove(&tab);
+    result
+}
+
+async fn spawn_and_attach(
+    app: AppHandle,
+    state: Arc<NvimState>,
+    env: &HashMap<String, String>,
+    tab: u32,
+    opts: StartOptions,
+) -> Result<(), StartError> {
     let bin = find_nvim(env)?;
     check_version(&bin, env).await?;
 
+    let home = env.get("HOME").map(String::as_str);
     let mut cmd = Command::new(&bin);
     cmd.arg("--embed");
-    let files: Vec<String> = std::mem::take(&mut *state.pending_files.lock().unwrap());
-    if !files.is_empty() {
-        cmd.arg("--").args(&files);
+    if !opts.files.is_empty() {
+        cmd.arg("--").args(opts.files.iter().map(|f| launch::expand_home(f, home)));
     }
     cmd.env_clear().envs(env).stderr(Stdio::piped());
-    // Apps opened from Finder start in "/"; the home folder is a better default.
-    if std::env::current_dir().map(|d| d == Path::new("/")).unwrap_or(true) {
-        if let Some(home) = env.get("HOME") {
-            cmd.current_dir(home);
-        }
+    if let Some(dir) = launch::working_dir(opts.cwd.as_deref(), home) {
+        cmd.current_dir(dir);
     }
 
-    let (nvim, io, mut child) = nvim_rs::create::tokio::new_child_cmd(&mut cmd, Forwarder { app: app.clone() })
+    let (nvim, io, mut child) = nvim_rs::create::tokio::new_child_cmd(&mut cmd, Forwarder { app: app.clone(), tab })
         .await
         .map_err(|e| StartError { kind: "spawn", message: format!("Could not start {}: {e}", bin.display()) })?;
 
@@ -151,48 +150,43 @@ pub async fn start(
         })
     });
 
+    // When this Neovim exits, the frontend closes its tab (or shows why it crashed).
     let exit_app = app.clone();
+    let exit_state = state.clone();
     tokio::spawn(async move {
         let status = child.wait().await;
         let _ = io.await;
         if let Some(task) = stderr_task {
             let _ = task.await;
         }
-        match status {
-            Ok(s) if s.success() => exit_app.exit(0),
-            other => {
-                let code = other.ok().and_then(|s| s.code());
-                let stderr = stderr_tail.lock().unwrap().iter().cloned().collect();
-                let _ = exit_app.emit("nvim-exit", ExitInfo { code, stderr });
-            }
-        }
+        exit_state.clients.lock().unwrap().remove(&tab);
+        let code = status.ok().and_then(|s| s.code());
+        let stderr = stderr_tail.lock().unwrap().iter().cloned().collect();
+        let _ = exit_app.emit("nvim-exit", ExitInfo { tab, code, stderr });
     });
 
     let attach_err = |e: String| StartError { kind: "attach", message: e };
     let api = nvim.get_api_info().await.map_err(|e| attach_err(e.to_string()))?;
     let channel = api.first().and_then(Value::as_i64).unwrap_or(0);
 
-    let opts = Value::Map(
+    let ui_opts = Value::Map(
         ["rgb", "ext_linegrid", "ext_multigrid", "ext_hlstate"]
             .iter()
             .map(|k| (Value::from(*k), Value::from(true)))
             .collect(),
     );
-    nvim.call("nvim_ui_attach", vec![cols.into(), rows.into(), opts])
+    nvim.call("nvim_ui_attach", vec![opts.cols.into(), opts.rows.into(), ui_opts])
         .await
         .map_err(|e| attach_err(e.to_string()))?
         .map_err(|e| attach_err(e.to_string()))?;
 
-    *state.client.lock().unwrap() = Some(nvim.clone());
+    state.clients.lock().unwrap().insert(tab, nvim.clone());
 
     // The bridge may wait behind a startup prompt, so it must not block start().
-    let state2 = state.clone();
     tokio::spawn(async move {
         if let Err(e) = nvim.exec_lua(BRIDGE, vec![Value::from(channel)]).await {
             eprintln!("nuivim: bridge failed: {e}");
         }
-        let pending: Vec<String> = std::mem::take(&mut *state2.pending_files.lock().unwrap());
-        state2.open_files(&app, pending);
     });
     Ok(())
 }

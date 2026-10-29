@@ -28,10 +28,10 @@ test('S9: cursor-relative floats after a prose word put each anchor corner at th
   const boxes = await page.evaluate(
     ({ grid, wins }) => {
       const p = (window as any).__nuivim;
-      const g = document.querySelector<HTMLElement>(`.grid[data-grid="${grid}"]`)!.getBoundingClientRect();
+      const g = document.querySelector<HTMLElement>(`.screen.active .grid[data-grid="${grid}"]`)!.getBoundingClientRect();
       return wins.map((w: number) => {
         const box = [...p.state.wins.values()].find((b: any) => b.win === w);
-        const r = document.querySelector<HTMLElement>(`.grid[data-grid="${box.grid}"]`)!.getBoundingClientRect();
+        const r = document.querySelector<HTMLElement>(`.screen.active .grid[data-grid="${box.grid}"]`)!.getBoundingClientRect();
         return { left: r.left - g.left, right: r.right - g.left, top: r.top - g.top, bottom: r.bottom - g.top };
       });
     },
@@ -110,7 +110,7 @@ test('S11: :NuivimReload applies a new prose_size; a bad value warns and the app
       return msg ? p.state.grids.get(msg.grid).rows.map((r: any) => r.text.join('')).join('\n') : '';
     });
   await expect.poll(messages).toContain('nuivim: overflow must be "shrink" or "clip"');
-  const dom = await page.evaluate(() => document.getElementById('screen')!.textContent);
+  const dom = await page.evaluate(() => document.querySelector('.screen.active')!.textContent);
   expect(dom).toContain('nuivim: overflow must be');
   expect(await size()).toBe('22px');
   expect(await page.evaluate(() => (window as any).__nuivim.config.overflow)).toBe('shrink');

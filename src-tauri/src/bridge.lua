@@ -54,12 +54,26 @@ vim.api.nvim_create_autocmd('OptionSet', {
   end,
 })
 
+-- The tab's title: the current file of a normal window, and the working directory.
+local function send_buf()
+  if vim.bo.buftype ~= '' or vim.api.nvim_win_get_config(0).relative ~= '' then
+    return
+  end
+  send('buf', { name = vim.api.nvim_buf_get_name(0), cwd = vim.fn.getcwd() })
+end
+
+vim.api.nvim_create_autocmd({ 'BufEnter', 'BufFilePost', 'DirChanged', 'VimEnter' }, {
+  group = group,
+  callback = send_buf,
+})
+
 vim.api.nvim_create_user_command('NuivimReload', send_config, { desc = 'nuivim: re-read vim.g.nuivim' })
 
 send_config()
 
 if vim.v.vim_did_enter == 1 then
   setup_maps()
+  send_buf()
   send('wininfo', vim.empty_dict())
 else
   vim.api.nvim_create_autocmd('VimEnter', {
